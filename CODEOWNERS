@@ -1,0 +1,20 @@
+# CODEOWNERS — GAMAD Deploy
+#
+# Définit qui doit réviser quelles parties du code.
+# Remplacer @zumradeals par les handles GitHub réels au besoin.
+
+# --- Source de vérité : réservé à l'Architecte ---
+/packages/contracts/                @zumradeals
+/packages/schema/                   @zumradeals
+/apps/control-plane/src/domain/     @zumradeals
+
+# --- Gouvernance : réservé à l'Architecte ---
+/CLAUDE.md                          @zumradeals
+/CONTRIBUTING.md                    @zumradeals
+/docs/                              @zumradeals
+
+# --- Ouvert aux contributeurs (avec revue) ---
+/apps/control-plane/src/adapters/source/   @zumradeals
+
+# --- Par défaut ---
+*                                   @zumradeals
