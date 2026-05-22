@@ -6,6 +6,17 @@
 
 export type PdnVersion = '1.0';
 
+/** Un health check individuel du PDN (URL complète, résolue par le TemplateCompiler). */
+export interface HealthCheck {
+  name: string;
+  /** URL complète, ex. http://localhost:8080/health — contrastée avec le path relatif de C-02. */
+  url: string;
+  expected_status: number;
+  timeout_s: number;
+  attempts: number;
+  interval_s: number;
+}
+
 export interface PlanDeDeploiementNormalise {
   pdn_version: PdnVersion;
 
@@ -49,15 +60,11 @@ export interface PlanDeDeploiementNormalise {
     https: boolean;
   };
 
-  /** Au moins 1 health check requis (INV-03). */
-  health_checks: Array<{
-    name: string;
-    url: string;
-    expected_status: number;
-    timeout_s: number;
-    attempts: number;
-    interval_s: number;
-  }>;
+  /**
+   * Tableau non vide — INV-03 porté dans le type lui-même.
+   * [HealthCheck, ...HealthCheck[]] rend impossible de construire un PDN sans health check.
+   */
+  health_checks: [HealthCheck, ...HealthCheck[]];
 
   policies: {
     /** Interdit les images Docker :latest. */

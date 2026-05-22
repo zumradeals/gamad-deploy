@@ -3,7 +3,7 @@
 // Interfaces et types uniquement — aucune implémentation métier.
 
 // C-01 — PDN
-export type { PdnVersion, PlanDeDeploiementNormalise } from './pdn';
+export type { PdnVersion, HealthCheck, PlanDeDeploiementNormalise } from './pdn';
 
 // C-02 — gamad.json
 export { ContratRepoSchema, ContractVersionSchema, SourceRefSchema, EnvVarSchema, HealthCheckSchema, PoliciesSchema } from './repo-contract';

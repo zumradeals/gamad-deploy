@@ -134,6 +134,19 @@ intention de déploiement. Source de vérité si présent (INV-02).
 - `contract_version` inconnue → refus explicite avec message clair.
 - Si présent, **aucune heuristique ne le contredit** (INV-02).
 
+**Contraintes de validation Zod (schéma `ContratRepoSchema`, `packages/contracts/src/repo-contract.ts`) :**
+- `source_ref.value` : chaîne non vide (`min(1)`).
+- `env[].name` : format **UPPER_SNAKE_CASE** (`/^[A-Z][A-Z0-9_]*$/`) — rejeté sinon.
+- `health.checks` : tableau d'au moins 1 élément (`min(1)`, INV-03).
+- `health.checks[].path` : doit commencer par `/` (chemin relatif, pas une URL complète).
+- `health.checks[].expected_status` : entier dans `[100, 599]`.
+- `runtime.ports` : valeurs entières positives.
+
+> **Note de distinction C-01/C-02 :** `health.checks[].path` dans le `gamad.json` est un
+> chemin relatif (ex. `/health`). Le `TemplateCompiler` le transforme en URL complète
+> (`url: string`) dans le PDN (C-01) lors de la compilation. Ce sont deux représentations
+> différentes de la même information à deux niveaux du pipeline.
+
 ---
 
 ## C-03 — SourceResolver : Compiler + Adapter
