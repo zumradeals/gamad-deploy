@@ -1,0 +1,9 @@
+{
+  "name": "@gamad/config",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "typecheck": "echo 'config : aucun source TypeScript à vérifier'",
+    "lint": "echo 'config : aucun source à linter'"
+  }
+}
