@@ -77,9 +77,11 @@ export class DeploymentService {
     }
   }
 
-  async ensureSnapshot(deploymentId: string, callbackUrl: string): Promise<SnapshotManifest | null> {
-    if (await this.snapshot.exists(deploymentId)) return null; // ADR-0007 : write-once
-
+  async ensureSnapshot(deploymentId: string, callbackUrl: string): Promise<SnapshotManifest> {
+    if (await this.snapshot.exists(deploymentId)) {
+      // ADR-0007 : write-once — retourne S0 inchangé sans jamais recapturer.
+      return this.snapshot.getManifest(deploymentId);
+    }
     const manifest = await this.snapshot.capture(deploymentId);
     await this.logger.log(callbackUrl, deploymentId, 'step_done', 'snapshot-capturé', {
       capturedAt: manifest.capturedAt,

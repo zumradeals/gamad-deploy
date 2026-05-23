@@ -1,12 +1,19 @@
 // Preuve INV-10 structurel : PDN avec ref malveillant → PdnSecurityValidatorError levée.
-// Le spy GitExecutorPort montre 0 appels → aucune exécution avant validation.
+// Test d'isolation bout en bout : GitExecutorStub est câblé dans DeploymentService ;
+// gitSpy.clones === 0 parce que le service a refusé AVANT le clone, pas parce que le spy est inerte.
 // Le PDN ne peut pas exprimer une commande shell (pas de champ executeCommand).
-// Ce test prouve que la protection opère AVANT le premier contact avec un port d'exécution.
 
 import { describe, test, expect } from 'vitest';
-import type { PlanDeDeploiementNormalise } from '@gamad/contracts';
+import type { AgentDispatchRequest, PlanDeDeploiementNormalise } from '@gamad/contracts';
 import { PdnSecurityValidatorService, PdnSecurityValidatorError } from '../services/pdn-security-validator.service';
+import { DeploymentService } from '../services/deployment.service';
+import { DeploymentLoggerService } from '../services/deployment-logger.service';
 import { GitExecutorStub } from '../stubs/git-executor.stub';
+import { DockerExecutorStub } from '../stubs/docker-executor.stub';
+import { NginxExecutorStub } from '../stubs/nginx-executor.stub';
+import { CertbotExecutorStub } from '../stubs/certbot-executor.stub';
+import { SnapshotStub } from '../stubs/snapshot.stub';
+import { CallbackStub } from '../stubs/callback.stub';
 
 const VALID_PDN: PlanDeDeploiementNormalise = {
   pdn_version: '1.0',
@@ -24,25 +31,30 @@ const VALID_PDN: PlanDeDeploiementNormalise = {
   policies: { ban_latest: false, on_error_stop: true },
 };
 
-describe('PdnSecurityValidatorService (INV-10)', () => {
-  test('PDN sain → pass, GitExecutorPort non appelé', () => {
-    const gitSpy = new GitExecutorStub();
-    const validator = new PdnSecurityValidatorService();
+function makeServiceWithGitSpy(gitSpy: GitExecutorStub): DeploymentService {
+  return new DeploymentService(
+    gitSpy,
+    new DockerExecutorStub(),
+    new NginxExecutorStub(),
+    new CertbotExecutorStub(),
+    new SnapshotStub(),
+    new DeploymentLoggerService(new CallbackStub()),
+  );
+}
 
+describe('PdnSecurityValidatorService (INV-10)', () => {
+  test('PDN sain → pass, aucune exception levée', () => {
+    const validator = new PdnSecurityValidatorService();
     expect(() => validator.validate(VALID_PDN)).not.toThrow();
-    expect(gitSpy.clones).toHaveLength(0); // spy prouve qu'aucun executor n'a été appelé
   });
 
-  test('ref.value avec injection shell → PdnSecurityValidatorError avant tout executor', () => {
-    const gitSpy = new GitExecutorStub();
+  test('ref.value avec injection shell → PdnSecurityValidatorError', () => {
     const validator = new PdnSecurityValidatorService();
     const malicious: PlanDeDeploiementNormalise = {
       ...VALID_PDN,
       source: { ...VALID_PDN.source, ref: { type: 'branch', value: 'main; rm -rf /' } },
     };
-
     expect(() => validator.validate(malicious)).toThrow(PdnSecurityValidatorError);
-    expect(gitSpy.clones).toHaveLength(0); // zéro exécution
   });
 
   test('ref.value avec injection via backtick → PdnSecurityValidatorError', () => {
@@ -51,7 +63,6 @@ describe('PdnSecurityValidatorService (INV-10)', () => {
       ...VALID_PDN,
       source: { ...VALID_PDN.source, ref: { type: 'tag', value: '`cat /etc/passwd`' } },
     };
-
     expect(() => validator.validate(malicious)).toThrow(PdnSecurityValidatorError);
   });
 
@@ -61,7 +72,6 @@ describe('PdnSecurityValidatorService (INV-10)', () => {
       ...VALID_PDN,
       source: { ...VALID_PDN.source, url: 'file:///etc/passwd' },
     };
-
     expect(() => validator.validate(malicious)).toThrow(PdnSecurityValidatorError);
   });
 
@@ -71,7 +81,6 @@ describe('PdnSecurityValidatorService (INV-10)', () => {
       ...VALID_PDN,
       artifact: { ...VALID_PDN.artifact, compose_file: '../../etc/passwd' },
     };
-
     expect(() => validator.validate(malicious)).toThrow(PdnSecurityValidatorError);
   });
 
@@ -81,7 +90,6 @@ describe('PdnSecurityValidatorService (INV-10)', () => {
       ...VALID_PDN,
       artifact: { ...VALID_PDN.artifact, compose_file: '/etc/docker/compose.yml' },
     };
-
     expect(() => validator.validate(malicious)).toThrow(PdnSecurityValidatorError);
   });
 
@@ -91,7 +99,6 @@ describe('PdnSecurityValidatorService (INV-10)', () => {
       ...VALID_PDN,
       proxy: { ...VALID_PDN.proxy, domain: 'app.example.com; curl attacker.io' },
     };
-
     expect(() => validator.validate(malicious)).toThrow(PdnSecurityValidatorError);
   });
 
@@ -101,7 +108,70 @@ describe('PdnSecurityValidatorService (INV-10)', () => {
       ...VALID_PDN,
       proxy: { ...VALID_PDN.proxy, domain: 'app.example.com' },
     };
-
     expect(() => validator.validate(withDomain)).not.toThrow();
+  });
+});
+
+// ── Isolation bout en bout (test critique INV-10) ───────────────────────────────────────────────
+// GitExecutorStub EST câblé dans DeploymentService.
+// gitSpy.clones === 0 PARCE QUE deploy() a refusé avant d'atteindre le clone — pas parce que le spy est inerte.
+
+describe('INV-10 isolation bout en bout : deploy() refuse AVANT git clone', () => {
+  test('ref malveillante → PdnSecurityValidatorError, GitExecutorPort.clone jamais appelé', async () => {
+    const gitSpy = new GitExecutorStub();
+    const service = makeServiceWithGitSpy(gitSpy);
+
+    const maliciousPdn: PlanDeDeploiementNormalise = {
+      ...VALID_PDN,
+      source: { ...VALID_PDN.source, ref: { type: 'branch', value: 'main; rm -rf /' } },
+    };
+    const request: AgentDispatchRequest = {
+      deployment_id: 'dep-inv10-isolation-001',
+      resolved_plan: { ...maliciousPdn, plan_hash: 'badref' },
+      callback_url: 'http://control-plane/callback',
+    };
+
+    // deploy() lève avant tout appel de port.
+    await expect(service.deploy(request)).rejects.toThrow(PdnSecurityValidatorError);
+
+    // Preuve d'isolation : gitSpy est câblé, mais clone() n'a jamais été atteint.
+    // Le validateur bloque la chaîne AVANT le premier appel de port.
+    expect(gitSpy.clones).toHaveLength(0);
+  });
+
+  test('source.url malveillante → PdnSecurityValidatorError, GitExecutorPort.clone jamais appelé', async () => {
+    const gitSpy = new GitExecutorStub();
+    const service = makeServiceWithGitSpy(gitSpy);
+
+    const maliciousPdn: PlanDeDeploiementNormalise = {
+      ...VALID_PDN,
+      source: { ...VALID_PDN.source, url: 'file:///etc/passwd' },
+    };
+    const request: AgentDispatchRequest = {
+      deployment_id: 'dep-inv10-isolation-002',
+      resolved_plan: { ...maliciousPdn, plan_hash: 'badurl' },
+      callback_url: 'http://control-plane/callback',
+    };
+
+    await expect(service.deploy(request)).rejects.toThrow(PdnSecurityValidatorError);
+    expect(gitSpy.clones).toHaveLength(0);
+  });
+
+  test('PDN sain → gitSpy.clone appelé 1 fois (prouve que le spy fonctionne)', async () => {
+    const gitSpy = new GitExecutorStub();
+    const service = makeServiceWithGitSpy(gitSpy);
+
+    const request: AgentDispatchRequest = {
+      deployment_id: 'dep-inv10-valid-001',
+      resolved_plan: { ...VALID_PDN, plan_hash: 'goodhash' },
+      callback_url: 'http://control-plane/callback',
+    };
+
+    await service.deploy(request);
+
+    // Le PDN sain passe le validator → clone est bien appelé.
+    // Ce test prouve que le spy est vivant et que les assertions ci-dessus ne trivient pas.
+    expect(gitSpy.clones).toHaveLength(1);
+    expect(gitSpy.clones[0]?.deploymentId).toBe('dep-inv10-valid-001');
   });
 });
