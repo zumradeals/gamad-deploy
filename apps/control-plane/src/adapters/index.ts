@@ -1,5 +1,2 @@
-// Couche Adapters — implémentations concrètes des interfaces de packages/contracts (P-04+)
-// Ex. : AgentClient (C-07), GeniusPayAdapter (C-08), HetznerAdapter (C-09).
-// Importe Domain pour les types, jamais l'inverse (CLAUDE.md §4).
-
-export {};
+export { PipelineRepositoryAdapter, DB_TOKEN } from './pipeline-repository.adapter';
+export { AgentHttpAdapter, AGENT_BASE_URL_TOKEN, AGENT_TOKEN_TOKEN } from './agent-http.adapter';

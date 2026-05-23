@@ -5,8 +5,9 @@
 // de ce module (par OrchestrationModule ou les tests) via les abstract classes comme tokens.
 
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
-import { PIPELINE_QUEUE } from './pipeline/pipeline.constants';
+import { BullModule, getQueueToken } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
+import { PIPELINE_QUEUE, PIPELINE_QUEUE_TOKEN } from './pipeline/pipeline.constants';
 import { PipelineJobRunner } from './processors/pipeline-job-runner';
 import { ResolveSourceProcessor } from './processors/resolve-source.processor';
 import { ProvisionDbProcessor } from './processors/provision-db.processor';
@@ -27,6 +28,11 @@ import { SourceResolverService } from '../domain/index';
     MigrateDataProcessor,
     DispatchAgentProcessor,
     AwaitHealthProcessor,
+    {
+      provide: PIPELINE_QUEUE_TOKEN,
+      useFactory: (queue: Queue) => queue,
+      inject: [getQueueToken(PIPELINE_QUEUE)],
+    },
   ],
   exports: [
     PipelineJobRunner,
@@ -35,6 +41,7 @@ import { SourceResolverService } from '../domain/index';
     MigrateDataProcessor,
     DispatchAgentProcessor,
     AwaitHealthProcessor,
+    PIPELINE_QUEUE_TOKEN,
   ],
 })
 export class PipelineModule {}
