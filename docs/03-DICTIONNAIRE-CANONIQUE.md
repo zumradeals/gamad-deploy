@@ -187,7 +187,7 @@
 | created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
 | | | 🔒 trigger : no UPDATE/DELETE |
 
-### `deployment_snapshots` (état pré-déploiement pour rollback — C-07, INV-08)
+### `deployment_snapshots` 🔒 (état pré-déploiement pour rollback — C-07, INV-08, C-11)
 | Colonne | Type | Contraintes |
 |---|---|---|
 | id | UUID | PK |
@@ -196,8 +196,12 @@
 | nginx_config | TEXT | |
 | commit_sha | TEXT | |
 | created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
+| | | 🔒 trigger : no UPDATE/DELETE |
 
-*Sémantiquement append : un snapshot par déploiement.*
+*Write-once : un snapshot écrit une seule fois au démarrage du job dispatch-agent,
+avant toute modification du serveur. Le fait « a servi au rollback » est dérivable
+par jointure sur deployments.status = 'rolled_back' — aucun UPDATE n'est jamais requis.
+Voir ADR-0004.*
 
 ---
 
@@ -291,7 +295,7 @@ ces deux tables pourront être ajoutées en phase ultérieure **sans casser le s
 ## 3.8 — Récapitulatif des invariants appliqués
 
 - **17 tables**, UUID v4 partout (INV-05).
-- **6 tables d'audit** verrouillées au niveau base : `deployment_plans`, `deployment_logs`, `deployment_state_transitions`, `payment_transactions`, `template_purchases` (INV-04).
+- **6 tables d'audit** verrouillées au niveau base : `deployment_plans`, `deployment_logs`, `deployment_state_transitions`, `deployment_snapshots`, `payment_transactions`, `template_purchases` (INV-04). Voir ADR-0004.
 - **Tenant injecté** : `org_id` sur toute table métier (INV-06).
 - **Monétisation rattachée à l'organisation**, jamais à l'utilisateur seul.
 - **Devise XOF** par défaut (contexte africain).

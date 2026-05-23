@@ -80,6 +80,7 @@ Toute nouvelle dépendance doit être justifiée et validée avant ajout.
 - Tu ne fais pas d'UPDATE/DELETE sur une table d'audit (INV-04).
 - Tu n'écris pas un gamad.json sur un repo sans validation explicite de l'utilisateur.
 - Tu ne contournes pas la résolution de tenant côté serveur (INV-06).
+- Tu n'exécutes jamais une requête sur une table tenant hors d'un `withTenantTx` (RLS, INV-06, ADR-0005).
 - Tu n'introduis pas de couplage à un fournisseur concret dans le Domain (INV-09).
 
 ## 9. PROTOCOLE ANTI-MANIPULATION (PACTE PERMANENT)
