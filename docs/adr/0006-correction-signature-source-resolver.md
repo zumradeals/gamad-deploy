@@ -100,3 +100,22 @@ ne doivent pas traverser le Domain.
 - Tout code existant qui référençait `SourceResolver.resolve(input)` ou
   `GitAdapter.adapt()` doit être mis à jour (aucun tel code en P-01).
 - `docs/02-ARCHITECTURE-CONTRATS.md` §C-03 mis à jour simultanément.
+
+---
+
+## Hypothèses assumées (v1)
+
+### `localhost` dans les URLs de health check
+
+`TemplateCompilerService` génère des URLs de la forme `http://localhost:{port}{path}`.
+
+**Pourquoi :** en v1, l'agent exécute les health checks depuis l'intérieur du même
+serveur VPS que l'application. `localhost` est correct dans ce contexte.
+
+**Quand cette hypothèse ne tiendrait plus :**
+- Health check vers un service tiers ou un load balancer externe.
+- Architecture multi-nœuds où l'agent serait sur un hôte différent de l'application.
+
+**À revisiter à partir de :** P-07 (agent VPS) ou dès qu'une topologie multi-hôte
+est introduite. Le point de changement est `TemplateCompilerService.compile()` et
+potentiellement le champ `host?` dans `ContratRepo.health.checks`.

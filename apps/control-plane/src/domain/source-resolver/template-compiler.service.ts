@@ -15,7 +15,12 @@ export class TemplateCompilerService implements TemplateCompiler {
   compile(contract: ContratRepo, analysis: RepoAnalysis): PlanDeDeploiementNormalise {
     const port = this.primaryPort(contract);
 
-    // Conversion C-02 path relatif → C-01 URL complète (INV-03 : chemin ≠ URL)
+    // Conversion C-02 path relatif → C-01 URL complète (INV-03 : chemin ≠ URL).
+    // Hypothèse v1 : l'agent vérifie la santé depuis l'intérieur du même serveur VPS,
+    // donc l'application est toujours joignable sur localhost. Cette hypothèse tient
+    // tant que health checks et application cohabitent sur le même hôte.
+    // À revisiter si un health check doit cibler un host externe (ex. load balancer
+    // ou service tiers) — voir ADR-0006 §Hypothèses assumées.
     const healthChecks = contract.health.checks.map<HealthCheck>((hc) => ({
       name: hc.name,
       url: `http://localhost:${port}${hc.path}`,
