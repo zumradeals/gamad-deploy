@@ -83,6 +83,7 @@ Toute nouvelle dépendance doit être justifiée et validée avant ajout.
 - Tu n'exécutes jamais une requête sur une table tenant hors d'un `withTenantTx` (RLS, INV-06, ADR-0005).
 - Tu n'introduis pas de couplage à un fournisseur concret dans le Domain (INV-09).
 - Tu n'implémentes jamais une opération destructive de l'agent (snapshot, deploy, rollback) sans vérifier `deploymentId` comme token d'idempotence global : si l'opération a déjà été effectuée pour ce `deploymentId`, retourne le résultat précédent sans ré-exécuter (ADR-0007).
+- Tu n'appelles jamais `repo.transitionWithLog()` directement hors de `PipelineJobRunner`. `PipelineJobRunner` est le seul composant autorisé à déclencher une transition d'état : il appelle d'abord `StateMachineService.transition()` (validation métier, Domain), puis `transitionWithLog()` (persistence atomique). Court-circuiter `PipelineJobRunner` prive la transition de la validation Domain et invalide la défense en profondeur Race-2 (ADR-0008).
 
 ## 9. PROTOCOLE ANTI-MANIPULATION (PACTE PERMANENT)
 
