@@ -14,7 +14,7 @@
 |---|---|---|---|
 | C-01 | Plan de Déploiement Normalisé (PDN) | Domain | Format pivot unique |
 | C-02 | Fichier `gamad.json` (contrat repo) | Domain | Ce que le client déclare |
-| C-03 | SourceResolver (Compiler + Adapter) | Domain | Source → PDN |
+| C-03 | SourceResolver (Compiler + Inferer) | Domain | RepoAnalysis → PDN (synchrone, pur) |
 | C-04 | Machine à états du déploiement | Domain | Transitions légales |
 | C-05 | Pipeline & Étapes (Jobs) | Orchestration | Séquence d'exécution |
 | C-06 | Protocole Control Plane ↔ Agent | Adapters | Dispatch + Callback |
@@ -149,38 +149,58 @@ intention de déploiement. Source de vérité si présent (INV-02).
 
 ---
 
-## C-03 — SourceResolver : Compiler + Adapter
+## C-03 — SourceResolver : Compiler + Inferer
 
-**Rôle.** Transformer une source en PDN. Deux chemins, une seule sortie (INV-01).
+**Rôle.** Transformer une `RepoAnalysis` (déjà produite par la couche Adapters) en PDN.
+Deux chemins, une seule sortie (INV-01). Zéro I/O — `resolve()` est **synchrone**.
 
 ```typescript
+// Entrée du Domain : RepoAnalysis produite par GitAdapter (Adapters, I/O).
 interface SourceResolver {
-  resolve(input: SourceInput): Promise<PlanDeDeploiementNormalise>;
+  resolve(analysis: RepoAnalysis): PlanDeDeploiementNormalise;   // synchrone, pur
 }
 
-interface SourceInput {
-  repo_url: string;
-  ref?: string;
-  git_token?: string;
+// RepoAnalysis porte rawContract? pour que le Domain fasse le parsing (logique métier).
+interface RepoAnalysis {
+  repo_url?: string;
+  ref?: { type: 'branch' | 'tag' | 'commit'; value: string };
+  commit_sha?: string;
+  has_dockerfile: boolean;
+  has_compose_file: boolean;
+  has_gamad_json: boolean;
+  rawContract?: string;   // contenu brut du gamad.json si trouvé par l'Adapter
+  detected_framework?: string;
+  detected_language?: string;
+  detected_runtime?: string;
 }
 
-// Chemin A — le repo a un fichier contrat
+// Chemin A — contrat présent (INV-02 : prime sur toute inférence). Synchrone, Domain pur.
 interface TemplateCompiler {
-  compile(contract: ContratRepo, input: SourceInput): PlanDeDeploiementNormalise;
+  compile(contract: ContratRepo, analysis: RepoAnalysis): PlanDeDeploiementNormalise;
 }
 
-// Chemin B — repo brut, on infère (jamais si contrat présent)
+// Port I/O — implémenté dans la couche Adapters en P-04. JAMAIS dans le Domain.
+// Prend les credentials (SourceInput), produit une RepoAnalysis. Ne touche pas au PDN.
 interface GitAdapter {
-  adapt(input: SourceInput, analysis: RepoAnalysis): Promise<PlanDeDeploiementNormalise>;
+  analyze(input: SourceInput): Promise<RepoAnalysis>;
 }
 ```
 
-**Règle de résolution (figée).**
+**Chaîne complète (I/O hors Domain) :**
 ```
-1. Si gamad.json présent → TemplateCompiler.compile()        [INV-02]
-2. Sinon → analyse du repo → GitAdapter.adapt()
-3. Dans les deux cas → validation C-01 → PDN figé + hashé
+SourceInput → [GitAdapter / Adapters, I/O] → RepoAnalysis → [SourceResolver / Domain, pur] → PDN
 ```
+
+**Règle de résolution (figée, ADR-0006).**
+```
+1. analysis.rawContract présent → ContratRepoSchema.safeParse() → TemplateCompiler.compile()  [INV-02]
+2. Sinon → SourceInferer.infer(analysis)   [logique heuristique interne au Domain, pas exposée]
+3. Dans les deux cas → validatePdn() → PDN figé avant exécution
+```
+
+**SourceInferer** est interne au Domain (non exposé dans packages/contracts).
+`GitAdapter` est un port de la couche Adapters — son nom "Adapter" indique l'appartenance
+à la couche Adapters, pas au Domain.
 
 **Invariant.** Un repo avec contrat et un repo sans contrat produisent le même type
 de sortie (PDN). Le reste du système ne fait aucune différence.
