@@ -4,17 +4,23 @@
 // Transition RUNNING → FAILED (via runner) si timeout.
 // Boucle bornée : maxAttempts × intervalMs configurable pour les tests (intervalMs=0).
 
+import { Injectable, Inject } from '@nestjs/common';
 import type { Job } from 'bullmq';
-import { JobName } from '../pipeline/pipeline.constants';
+import { JobName, AWAIT_HEALTH_INTERVAL_MS, AWAIT_HEALTH_MAX_ATTEMPTS } from '../pipeline/pipeline.constants';
 import type { PipelineJobData } from '../pipeline/pipeline.types';
-import type { PipelineJobRunner } from './pipeline-job-runner';
-import type { AgentPort } from '../ports/agent.port';
+import { PipelineJobRunner } from './pipeline-job-runner';
+import { AgentPort } from '../ports/agent.port';
 
+@Injectable()
 export class AwaitHealthProcessor {
   constructor(
+    @Inject(PipelineJobRunner)
     private readonly runner: PipelineJobRunner,
+    @Inject(AgentPort)
     private readonly agentPort: AgentPort,
+    @Inject(AWAIT_HEALTH_INTERVAL_MS)
     private readonly intervalMs: number = 5_000,
+    @Inject(AWAIT_HEALTH_MAX_ATTEMPTS)
     private readonly maxAttempts: number = 12,
   ) {}
 

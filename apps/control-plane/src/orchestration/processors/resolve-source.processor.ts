@@ -3,16 +3,21 @@
 // Transition PENDING → RUNNING (première étape du pipeline).
 // Idempotence (INV-07) : si deployment_plans existe déjà pour ce deploymentId → skip.
 
+import { Injectable, Inject } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
-import type { SourceResolverService } from '../../domain/index';
-import { JobName, DEFAULT_JOB_OPTIONS } from '../pipeline/pipeline.constants';
+import { SourceResolverService } from '../../domain/index';
+import { JobName, DEFAULT_JOB_OPTIONS, PIPELINE_QUEUE_TOKEN } from '../pipeline/pipeline.constants';
 import type { PipelineJobData } from '../pipeline/pipeline.types';
-import type { PipelineJobRunner } from './pipeline-job-runner';
+import { PipelineJobRunner } from './pipeline-job-runner';
 
+@Injectable()
 export class ResolveSourceProcessor {
   constructor(
+    @Inject(PipelineJobRunner)
     private readonly runner: PipelineJobRunner,
+    @Inject(SourceResolverService)
     private readonly sourceResolver: SourceResolverService,
+    @Inject(PIPELINE_QUEUE_TOKEN)
     private readonly queue: Queue,
   ) {}
 

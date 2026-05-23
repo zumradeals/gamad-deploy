@@ -5,6 +5,12 @@ export const PIPELINE_QUEUE = 'pipeline';
 
 export const REDIS_CONNECTION = 'REDIS_CONNECTION';
 
+// Tokens d'injection NestJS — utilisés avec @Inject() explicite (INV-07 DI debt P-04).
+// Évite toute dépendance à emitDecoratorMetadata dans les processors.
+export const PIPELINE_QUEUE_TOKEN = 'PIPELINE_QUEUE_TOKEN';
+export const AWAIT_HEALTH_INTERVAL_MS = 'AWAIT_HEALTH_INTERVAL_MS';
+export const AWAIT_HEALTH_MAX_ATTEMPTS = 'AWAIT_HEALTH_MAX_ATTEMPTS';
+
 export enum JobName {
   RESOLVE_SOURCE = 'resolve-source',
   PROVISION_DB   = 'provision-db',

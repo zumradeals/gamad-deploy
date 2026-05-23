@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run --reporter=verbose"
   },
   "dependencies": {
     "@gamad/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.11",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
   }
 }
