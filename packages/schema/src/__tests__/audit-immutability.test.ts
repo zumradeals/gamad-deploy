@@ -46,6 +46,11 @@ describe('Audit immutability (INV-04) — les 6 tables 🔒', () => {
     );
     orgId = orgRes.rows[0]!.id;
 
+    // Pose le contexte tenant LOCAL à cette transaction (is_local = true).
+    // Requis pour que les INSERTs sur les tables avec RLS (servers, projects, etc.)
+    // passent le WITH CHECK implicitement copié de la policy USING.
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_org_id', orgId]);
+
     const serverRes = await client.query<{ id: string }>(
       `INSERT INTO servers (org_id, name, host, agent_token)
        VALUES ($1, 'test-server', '10.0.0.1', 'tok-${Date.now()}') RETURNING id`,
@@ -89,9 +94,13 @@ describe('Audit immutability (INV-04) — les 6 tables 🔒', () => {
     await pool.end();
   });
 
-  /** Exécute une requête dans un SAVEPOINT pour récupérer après l'exception attendue. */
+  /** Exécute une requête dans un SAVEPOINT pour récupérer après l'exception attendue.
+   *  set_config pose app.current_org_id en LOCAL pour que les tables avec RLS (ex.
+   *  payment_transactions, template_purchases) laissent la row visible et que le
+   *  trigger INV-04 soit atteint — sans quoi RLS masquerait la row avant le trigger. */
   async function expectAuditViolation(sql: string, params: unknown[] = []): Promise<void> {
     await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_org_id', orgId]);
     await client.query('SAVEPOINT before_violation');
     await expect(client.query(sql, params)).rejects.toThrow(/INSERT-only|INV-04/i);
     await client.query('ROLLBACK TO SAVEPOINT before_violation');
@@ -184,11 +193,15 @@ describe('Audit immutability (INV-04) — les 6 tables 🔒', () => {
   // ─── template_purchases ──────────────────────────────────────────────────────
 
   test('template_purchases — UPDATE rejeté (INV-04)', async () => {
+    // template_purchases a RLS (org_id direct) : l'INSERT nécessite le contexte tenant.
+    await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_org_id', orgId]);
     const res = await client.query<{ id: string }>(
       `INSERT INTO template_purchases (org_id, template_id, transaction_id)
        VALUES ($1, $2, $3) RETURNING id`,
       [orgId, templateId, transactionId],
     );
+    await client.query('COMMIT');
     const id = res.rows[0]!.id;
     await expectAuditViolation(
       `UPDATE template_purchases SET org_id = gen_random_uuid() WHERE id = $1`,

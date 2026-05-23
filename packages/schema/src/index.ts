@@ -9,3 +9,4 @@ export * from './tables/infrastructure';
 export * from './tables/projects';
 export * from './tables/deployments';
 export * from './tables/monetization';
+export * from './tenant-tx';
