@@ -285,6 +285,16 @@ describe('E2E-03 IDEMPOTENCE — BullMQ rejoue le job → 1 seule transition PEN
 });
 
 // ── E2E-04 : RACE 2 ───────────────────────────────────────────────────────────
+//
+// CE QUE CE TEST PROUVE : l'optimistic-lock de PipelineRepositoryAdapter en isolation.
+// Appel direct à repo.transitionWithLog() → la StateMachineService n'est PAS appelée ici.
+//
+// CE QUE CE TEST NE PROUVE PAS : la chaîne complète StateMachine + optimistic-lock.
+// DETTE P-06 : ajouter un test qui déclenche deux handleFailure() simultanés via
+// PipelineJobRunner (pas via repo.transitionWithLog() directement), pour prouver que
+// StateMachineService.transition() est appelée EN AMONT dans les deux paths concurrents
+// ET que l'optimistic-lock reste la seule ligne dans deployment_state_transitions.
+// Référence : ADR-0008 §"Gap de couverture de test — E2E-04".
 
 describe('E2E-04 RACE-2 — deux transitions RUNNING→FAILED simultanées → 1 seule ligne en base', () => {
   test(

@@ -6,6 +6,27 @@
 
 ---
 
+## Dette de test automatisée — à solder en P-06
+
+Ces tests **peuvent être automatisés** (pas de VPS requis) mais n'ont pas encore été écrits.
+
+### TD-01 — Chaîne complète StateMachine + optimistic-lock (Race-2 via PipelineJobRunner)
+
+**Contexte :** E2E-04 prouve l'optimistic-lock de `PipelineRepositoryAdapter` en isolation
+(appel direct à `repo.transitionWithLog()`). La `StateMachineService` n'est pas appelée dans
+ce test. La défense en profondeur (ADR-0008) — StateMachine valide FIRST, optimistic-lock
+garantit l'atomicité — n'est pas couverte bout-en-bout.
+
+**Test à écrire :** déclencher deux `PipelineJobRunner.handleFailure()` simultanés sur le même
+`deploymentId` en état RUNNING. Prouver que :
+- `StateMachineService.transition(RUNNING, FAILED)` est appelée dans chaque path (spy)
+- Exactement 1 ligne dans `deployment_state_transitions` (optimistic-lock gagne)
+- Le 2e path ne lève pas d'erreur visible (no-op silencieux correct pour une race)
+
+**Référence :** ADR-0008 §"Gap de couverture de test — E2E-04"
+
+---
+
 ## Contexte
 
 Les tests unitaires de P-02 et P-03 prouvent le comportement sur stubs.
