@@ -4,16 +4,21 @@
 // un double dispatch pour le même deploymentId est absorbé.
 // Pas de transition d'état : on reste RUNNING, on journalise le agentJobId.
 
+import { Injectable, Inject } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
-import { JobName, AWAIT_HEALTH_JOB_OPTIONS } from '../pipeline/pipeline.constants';
+import { JobName, AWAIT_HEALTH_JOB_OPTIONS, PIPELINE_QUEUE_TOKEN } from '../pipeline/pipeline.constants';
 import type { PipelineJobData } from '../pipeline/pipeline.types';
-import type { PipelineJobRunner } from './pipeline-job-runner';
-import type { AgentPort } from '../ports/agent.port';
+import { PipelineJobRunner } from './pipeline-job-runner';
+import { AgentPort } from '../ports/agent.port';
 
+@Injectable()
 export class DispatchAgentProcessor {
   constructor(
+    @Inject(PipelineJobRunner)
     private readonly runner: PipelineJobRunner,
+    @Inject(AgentPort)
     private readonly agentPort: AgentPort,
+    @Inject(PIPELINE_QUEUE_TOKEN)
     private readonly queue: Queue,
   ) {}
 

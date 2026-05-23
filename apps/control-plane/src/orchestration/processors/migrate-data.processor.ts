@@ -3,16 +3,21 @@
 // Idempotence (INV-07) : les migrations sont versionées — re-run = skip des déjà appliquées.
 // Pas de transition d'état : on reste RUNNING, on journalise seulement.
 
+import { Injectable, Inject } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
-import { JobName, DEFAULT_JOB_OPTIONS } from '../pipeline/pipeline.constants';
+import { JobName, DEFAULT_JOB_OPTIONS, PIPELINE_QUEUE_TOKEN } from '../pipeline/pipeline.constants';
 import type { PipelineJobData } from '../pipeline/pipeline.types';
-import type { PipelineJobRunner } from './pipeline-job-runner';
-import type { DbProviderPort } from '../ports/db-provider.port';
+import { PipelineJobRunner } from './pipeline-job-runner';
+import { DbProviderPort } from '../ports/db-provider.port';
 
+@Injectable()
 export class MigrateDataProcessor {
   constructor(
+    @Inject(PipelineJobRunner)
     private readonly runner: PipelineJobRunner,
+    @Inject(DbProviderPort)
     private readonly dbProvider: DbProviderPort,
+    @Inject(PIPELINE_QUEUE_TOKEN)
     private readonly queue: Queue,
   ) {}
 

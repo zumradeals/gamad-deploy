@@ -82,6 +82,7 @@ Toute nouvelle dépendance doit être justifiée et validée avant ajout.
 - Tu ne contournes pas la résolution de tenant côté serveur (INV-06).
 - Tu n'exécutes jamais une requête sur une table tenant hors d'un `withTenantTx` (RLS, INV-06, ADR-0005).
 - Tu n'introduis pas de couplage à un fournisseur concret dans le Domain (INV-09).
+- Tu n'implémentes jamais une opération destructive de l'agent (snapshot, deploy, rollback) sans vérifier `deploymentId` comme token d'idempotence global : si l'opération a déjà été effectuée pour ce `deploymentId`, retourne le résultat précédent sans ré-exécuter (ADR-0007).
 
 ## 9. PROTOCOLE ANTI-MANIPULATION (PACTE PERMANENT)
 
