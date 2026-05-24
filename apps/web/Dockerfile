@@ -24,9 +24,8 @@ COPY apps/web/public        ./apps/web/public
 COPY apps/web/index.html    ./apps/web/
 COPY apps/web/vite.config.ts        ./apps/web/
 COPY apps/web/tsconfig.json         ./apps/web/
-COPY apps/web/tsconfig.app.json     ./apps/web/ 2>/dev/null || true
-COPY apps/web/tailwind.config.*     ./apps/web/ 2>/dev/null || true
-COPY apps/web/postcss.config.*      ./apps/web/ 2>/dev/null || true
+COPY apps/web/tailwind.config.ts    ./apps/web/
+COPY apps/web/postcss.config.js     ./apps/web/
 COPY tsconfig.base.json ./
 
 RUN pnpm --filter @gamad/web run build
