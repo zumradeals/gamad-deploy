@@ -22,7 +22,7 @@ export interface InitResult {
 
 /** Brut du webhook HTTP avant parsing — le corps doit rester non-parsé pour le HMAC. */
 export interface RawWebhookNotification {
-  rawBody: Buffer;
+  rawBody: Uint8Array;
   /** Valeur de l'en-tête X-Webhook-Signature. */
   signature: string;
   /** Valeur de l'en-tête X-Webhook-Timestamp (secondes Unix en string). */

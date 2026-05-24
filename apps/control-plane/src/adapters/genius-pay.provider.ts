@@ -90,7 +90,7 @@ export class GeniusPayProvider extends PaymentProviderPort {
       throw new Error('Webhook rejeté : signature invalide.');
     }
 
-    const payload = JSON.parse(rawBody.toString('utf8')) as GeniusPayWebhookPayload;
+    const payload = JSON.parse(Buffer.from(rawBody).toString('utf8')) as GeniusPayWebhookPayload;
 
     return {
       ourReference: payload.data.reference,
