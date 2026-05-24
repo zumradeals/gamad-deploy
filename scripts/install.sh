@@ -32,6 +32,10 @@ NC='\033[0m' # No Color
 declare -A STEP_STATUS   # "ok" | "fail" | "skip"
 STEPS_ORDER=()
 
+# Gate : mis à true par start_containers si les conteneurs démarrent réellement.
+# run_migrations et check_health vérifient ce flag avant de s'exécuter.
+CONTAINERS_OK=false
+
 log_info()    { echo -e "${BLUE}[INFO]${NC}  $*"; }
 log_success() { echo -e "${GREEN}[✓]${NC}    $*"; }
 log_warn()    { echo -e "${YELLOW}[⚠]${NC}    $*"; }
@@ -154,6 +158,10 @@ configure_firewall() {
 clone_repo() {
   log_step "Étape 5 : Cloner le dépôt"
 
+  # Le dossier peut appartenir à l'utilisateur gamad alors que le script tourne
+  # en root → git refuse l'accès pour raison de sécurité. On l'exempte globalement.
+  git config --global --add safe.directory "${INSTALL_DIR}" 2>/dev/null || true
+
   if [[ -d "${INSTALL_DIR}/.git" ]]; then
     log_info "Le dépôt existe déjà dans ${INSTALL_DIR}. Mise à jour..."
     git -C "${INSTALL_DIR}" fetch origin "${REPO_BRANCH}"
@@ -223,8 +231,27 @@ start_containers() {
   local pg_pass
   pg_pass=$(grep -E "^POSTGRES_PASSWORD=" "${env_source}" | cut -d= -f2-)
   if [[ -z "${pg_pass}" || "${pg_pass}" == "CHANGE_ME"* ]]; then
-    log_error "POSTGRES_PASSWORD n'est pas configuré dans ${ENV_FILE}."
-    log_error "Éditez ${ENV_FILE} puis relancez ce script."
+    echo ""
+    echo -e "${YELLOW}${BOLD}┌─────────────────────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│  Action requise avant de continuer                          │${NC}"
+    echo -e "${YELLOW}${BOLD}└─────────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "  ${BOLD}POSTGRES_PASSWORD${NC} n'est pas configuré dans le fichier .env."
+    echo ""
+    echo -e "  1. Éditez le fichier :"
+    echo -e "     ${BOLD}nano ${ENV_FILE}${NC}"
+    echo ""
+    echo -e "  2. Remplacez la ligne :"
+    echo -e "     ${RED}POSTGRES_PASSWORD=CHANGE_ME_strong_password_here${NC}"
+    echo -e "     par un mot de passe fort, par exemple :"
+    echo -e "     ${GREEN}POSTGRES_PASSWORD=$(openssl rand -base64 20 | tr -dc 'a-zA-Z0-9' | head -c 24)${NC}"
+    echo ""
+    echo -e "  3. Configurez aussi les autres variables marquées CHANGE_ME"
+    echo -e "     (AGENT_TOKEN_SALT, GENIUSPAY_*)."
+    echo ""
+    echo -e "  4. Relancez ce script :"
+    echo -e "     ${BOLD}bash ${INSTALL_DIR}/scripts/install.sh${NC}"
+    echo ""
     mark_fail "Docker build"
     return
   fi
@@ -237,11 +264,18 @@ start_containers() {
 
   mark_ok "Docker build"
   log_success "Services Docker démarrés."
+  CONTAINERS_OK=true
 }
 
 # ── Étape 8 : Attendre PostgreSQL + lancer les migrations ─────────────────────
 run_migrations() {
   log_step "Étape 8 : Migrations Drizzle"
+
+  if [[ "${CONTAINERS_OK}" != "true" ]]; then
+    log_warn "Conteneurs non démarrés — migrations ignorées."
+    mark_skip "Migrations"
+    return
+  fi
 
   log_info "Attente de la santé de PostgreSQL (max 60s)..."
   local max_attempts=12
@@ -271,6 +305,12 @@ run_migrations() {
 check_health() {
   log_step "Étape 9 : Vérification de santé"
 
+  if [[ "${CONTAINERS_OK}" != "true" ]]; then
+    log_warn "Conteneurs non démarrés — vérification de santé ignorée."
+    mark_skip "Health check"
+    return
+  fi
+
   log_info "Attente du démarrage du control-plane (max 60s)..."
   local max_attempts=12
   local attempt=0
@@ -293,6 +333,11 @@ check_health() {
 # ── Étape 10 : SSL optionnel ──────────────────────────────────────────────────
 setup_ssl() {
   log_step "Étape 10 : SSL / Let's Encrypt"
+
+  if [[ "${CONTAINERS_OK}" != "true" ]]; then
+    mark_skip "SSL"
+    return
+  fi
 
   # Lire DOMAIN depuis .env
   local domain certbot_email
