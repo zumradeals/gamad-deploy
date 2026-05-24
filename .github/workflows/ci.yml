@@ -6,6 +6,19 @@ on:
   pull_request:
 
 jobs:
+  guard-inv01:
+    name: Guard INV-01 — zéro nom de plateforme dans source-inferer.ts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Grep INV-01 — aucun nom de plateforme commerciale dans l'inférenceur
+        # grep retourne 0 si trouvé (CI échoue via !) ; 1 si absent (CI passe).
+        # Ce gate s'exécute DEPUIS L'EXTÉRIEUR du code applicatif — non mockable,
+        # non contournable par une modif du code qu'il garde (ADR-0010).
+        run: |
+          ! grep -iE 'lovable|bolt|replit|cursor|\bv0\b' \
+            apps/control-plane/src/domain/source-resolver/source-inferer.ts
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
