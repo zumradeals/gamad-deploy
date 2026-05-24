@@ -1,0 +1,13 @@
+{
+  "list.title": "Projects",
+  "list.empty.title": "No projects yet",
+  "list.empty.subtitle": "Create your first project to start deploying.",
+  "list.new": "New project",
+  "card.server": "Server",
+  "card.lastDeploy": "Last deployment",
+  "card.never": "Never deployed",
+  "card.deploy": "Deploy again",
+  "filter.status": "Status",
+  "filter.server": "Server",
+  "filter.all": "All"
+}

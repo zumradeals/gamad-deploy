@@ -10,7 +10,7 @@ void i18n
   .init({
     fallbackLng: 'fr',
     supportedLngs: ['fr', 'en'],
-    ns: ['common', 'landing', 'auth'],
+    ns: ['common', 'landing', 'auth', 'dashboard', 'project', 'wizard', 'deployment'],
     defaultNS: 'common',
     backend: { loadPath: '/locales/{{lng}}/{{ns}}.json' },
     detection: {
