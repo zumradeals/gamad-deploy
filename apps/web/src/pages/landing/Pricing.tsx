@@ -7,7 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-export function Pricing() {
+interface PricingProps {
+  onSelectPlan?: (planKey: string) => void;
+}
+
+export function Pricing({ onSelectPlan }: PricingProps = {}) {
   const { t } = useTranslation('landing');
   const [annual, setAnnual] = useState(false);
 
@@ -106,14 +110,21 @@ export function Pricing() {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Link to={key === 'enterprise' ? '/contact' : '/auth/register'} className="w-full">
+                {onSelectPlan ? (
                   <Button
                     variant={highlighted ? 'default' : 'outline'}
                     className="w-full"
+                    onClick={() => onSelectPlan(key)}
                   >
                     {t(`pricing.${key}.cta`)}
                   </Button>
-                </Link>
+                ) : (
+                  <Link to={key === 'enterprise' ? '/contact' : '/auth/register'} className="w-full">
+                    <Button variant={highlighted ? 'default' : 'outline'} className="w-full">
+                      {t(`pricing.${key}.cta`)}
+                    </Button>
+                  </Link>
+                )}
               </CardFooter>
             </Card>
           ))}

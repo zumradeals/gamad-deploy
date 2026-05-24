@@ -35,5 +35,6 @@
   "footer.copyright": "© {{year}} GAMAD Technologie. Tous droits réservés.",
   "error.required": "Ce champ est requis.",
   "error.email": "Adresse e-mail invalide.",
+  "error.url": "URL invalide.",
   "error.generic": "Une erreur est survenue. Réessayez."
 }

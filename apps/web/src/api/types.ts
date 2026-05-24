@@ -20,6 +20,18 @@ export interface Server {
   status: 'online' | 'offline' | 'unknown';
 }
 
+export interface ServerDetail extends Server {
+  agentVersion: string;
+  lastActivityAt: string | null;
+  tokenSuffix: string;
+  deployedProjects: Array<{ id: string; name: string; status: DeploymentStatus }>;
+}
+
+export interface RegenerateTokenResponse {
+  token: string;
+  suffix: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -80,4 +92,75 @@ export interface LogLine {
   level: 'info' | 'warn' | 'error' | 'success';
   message: string;
   timestamp: string;
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  pendingEmail: string | null;
+  avatarUrl: string | null;
+  language: 'fr' | 'en';
+  theme: 'light' | 'dark' | 'system';
+}
+
+export interface OrgSettings {
+  id: string;
+  name: string;
+  slug: string;
+  plan: Organisation['plan'];
+}
+
+export interface OrgMember {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'admin' | 'member';
+  joinedAt: string;
+}
+
+export interface NotificationPrefs {
+  deploySuccess: boolean;
+  deployFailed: boolean;
+  rollback: boolean;
+  renewalUpcoming: boolean;
+  webhookUrl: string;
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  scope: 'read' | 'deploy' | 'admin';
+  createdAt: string;
+  lastUsedAt: string | null;
+  suffix: string;
+}
+
+export interface CreateApiKeyResponse extends ApiKey {
+  key: string;
+}
+
+// ── Billing ───────────────────────────────────────────────────────────────────
+
+export interface BillingInfo {
+  plan: Organisation['plan'];
+  status: 'active' | 'past_due' | 'cancelled';
+  renewsAt: string | null;
+  limits: {
+    projects: number | null;
+    servers: number | null;
+    deploymentsPerMonth: number | null;
+  };
+}
+
+export interface Transaction {
+  id: string;
+  amount: number;
+  currency: string;
+  status: 'success' | 'failed' | 'pending';
+  description: string;
+  createdAt: string;
 }

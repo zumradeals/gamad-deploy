@@ -1,12 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from './client';
-import type { Server } from './types';
+import type { Server, ServerDetail, RegenerateTokenResponse } from './types';
 
 export function useServers(orgId: string | null) {
   return useQuery({
     queryKey: ['orgs', orgId, 'servers'],
     queryFn: () => apiRequest<Server[]>(`/orgs/${orgId}/servers`),
     enabled: !!orgId,
+  });
+}
+
+export function useServerDetail(serverId: string) {
+  return useQuery({
+    queryKey: ['servers', serverId],
+    queryFn: () => apiRequest<ServerDetail>(`/servers/${serverId}`),
+    enabled: !!serverId,
   });
 }
 
@@ -25,8 +33,21 @@ export function useCreateServer(orgId: string | null) {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['orgs', orgId, 'servers'] });
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['orgs', orgId, 'servers'] }),
+  });
+}
+
+export function useTestServerConnection(serverId: string) {
+  return useMutation({
+    mutationFn: () => apiRequest<{ latencyMs: number }>(`/servers/${serverId}/ping`, { method: 'POST' }),
+  });
+}
+
+export function useRegenerateServerToken(serverId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<RegenerateTokenResponse>(`/servers/${serverId}/regenerate-token`, { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['servers', serverId] }),
   });
 }
