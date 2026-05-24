@@ -1,0 +1,56 @@
+/* Fonts Fontsource (auto-hébergées, pas de CDN tiers) */
+@import '@fontsource-variable/syne';
+@import '@fontsource-variable/dm-sans';
+@import '@fontsource-variable/jetbrains-mono';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens GAMAD Deploy ─────────────────────────────────────── */
+:root {
+  --bg: #F0FAF6;
+  --surface: #FFFFFF;
+  --accent: #10B981;
+  --accent-dark: #059669;
+  --border: rgba(16, 185, 129, 0.2);
+  --text: #0D1F18;
+  --text-muted: #4B7A63;
+  --font-display: 'Syne Variable', 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
+  --font-body: 'DM Sans Variable', 'DM Sans', sans-serif;
+}
+
+:root.dark {
+  --bg: #0A0F0D;
+  --surface: #111714;
+  --text: #E8F5EE;
+  --text-muted: #7BA892;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────── */
+* { border-color: var(--border); }
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Motif de fond dark (grille fine 1px vert 5%) ───────────────────── */
+.dark body {
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Utilitaires typo ────────────────────────────────────────────────── */
+.font-display { font-family: var(--font-display); }
+.font-mono-data { font-family: var(--font-mono); }
+
+/* ── Scrollbar stylée (dark) ─────────────────────────────────────────── */
+.dark ::-webkit-scrollbar { width: 6px; }
+.dark ::-webkit-scrollbar-track { background: var(--bg); }
+.dark ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }

@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="GAMAD Deploy — déployez vos applications sur votre propre VPS, de façon répétable et souveraine." />
     <title>GAMAD Deploy</title>
+    <!-- Anti-flash dark mode : script synchrone avant tout rendu.
+         Lit localStorage puis prefers-color-scheme, pose .dark sur <html>
+         avant que le navigateur calcule le premier style. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('gamad-theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (t === 'dark' || (!t && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (_) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
