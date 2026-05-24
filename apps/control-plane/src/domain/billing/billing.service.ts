@@ -7,8 +7,8 @@ import { Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import type { TenantContext } from '@gamad/contracts';
 import type { RawWebhookNotification } from '@gamad/contracts';
-import { PaymentProviderPort } from './payment-provider.port';
-import { BillingRepositoryPort } from './billing-repository.port';
+import type { PaymentProviderPort } from './payment-provider.port';
+import type { BillingRepositoryPort } from './billing-repository.port';
 
 export interface InitSubscriptionParams {
   amount: number;

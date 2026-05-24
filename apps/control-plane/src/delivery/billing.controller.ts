@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
-import { BillingService } from '../domain/billing/billing.service';
+import type { BillingService } from '../domain/billing/billing.service';
 
 @Controller('webhooks')
 export class BillingController {

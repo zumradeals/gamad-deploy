@@ -2,7 +2,8 @@
 // Câble : OrchestrationModule (BullMQ + processors) + adaptateurs réels + couche Delivery.
 // Les ports abstraits sont résolus ici via les adaptateurs concrets (INV-09).
 
-import { Module, MiddlewareConsumer } from '@nestjs/common';
+import type { MiddlewareConsumer } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { OrchestrationModule } from './orchestration/orchestration.module';

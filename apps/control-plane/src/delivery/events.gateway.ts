@@ -4,12 +4,13 @@
 // Émis : { type: 'transition', deployment_id, toState, timestamp }.
 // Nécessite WsAdapter (@nestjs/platform-ws) dans main.ts.
 
-import {
-  WebSocketGateway,
-  WebSocketServer,
+import type {
   OnGatewayInit,
   OnGatewayConnection,
-  OnGatewayDisconnect,
+  OnGatewayDisconnect} from '@nestjs/websockets';
+import {
+  WebSocketGateway,
+  WebSocketServer
 } from '@nestjs/websockets';
 import type { Server, WebSocket } from 'ws';
 import { Inject, Injectable } from '@nestjs/common';
