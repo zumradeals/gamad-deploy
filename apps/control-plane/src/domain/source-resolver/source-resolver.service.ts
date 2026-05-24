@@ -16,7 +16,7 @@ export class SourceResolverService implements SourceResolver {
     if (analysis.rawContract !== undefined) {
       return this.resolveFromContract(analysis.rawContract, analysis);
     }
-    return this.inferer.infer(analysis);
+    return this.inferer.infer(analysis).pdn;
   }
 
   private resolveFromContract(

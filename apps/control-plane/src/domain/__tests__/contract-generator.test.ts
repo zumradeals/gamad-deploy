@@ -16,28 +16,28 @@ const BASE_ANALYSIS: RepoAnalysis = {
 describe('ContractGeneratorService', () => {
   // ── Inférence artifact_type ─────────────────────────────────────────────
 
-  test('has_compose_file → artifact_type=docker-compose, confidence=0.75', () => {
+  test('has_compose_file → artifact_type=docker-compose, confidence=0.90', () => {
     const draft = generator.generate({ ...BASE_ANALYSIS, has_compose_file: true });
     expect(draft.contract.artifact_type).toBe('docker-compose');
+    expect(draft.confidence).toBe(0.90);
+  });
+
+  test('detected_runtime=node → artifact_type=node, confidence=0.55', () => {
+    const draft = generator.generate({ ...BASE_ANALYSIS, detected_runtime: 'node' });
+    expect(draft.contract.artifact_type).toBe('node');
+    expect(draft.confidence).toBe(0.55);
+  });
+
+  test('detected_framework=express → artifact_type=node, confidence=0.75', () => {
+    const draft = generator.generate({ ...BASE_ANALYSIS, detected_framework: 'express' });
+    expect(draft.contract.artifact_type).toBe('node');
     expect(draft.confidence).toBe(0.75);
   });
 
-  test('detected_runtime=node → artifact_type=node, confidence=0.60', () => {
-    const draft = generator.generate({ ...BASE_ANALYSIS, detected_runtime: 'node' });
-    expect(draft.contract.artifact_type).toBe('node');
-    expect(draft.confidence).toBe(0.60);
-  });
-
-  test('detected_framework=express → artifact_type=node, confidence=0.60', () => {
-    const draft = generator.generate({ ...BASE_ANALYSIS, detected_framework: 'express' });
-    expect(draft.contract.artifact_type).toBe('node');
-    expect(draft.confidence).toBe(0.60);
-  });
-
-  test('detected_framework=unknown → artifact_type=static, confidence=0.40', () => {
+  test('detected_framework=inconnu (rails) → artifact_type=static, confidence=0.20', () => {
     const draft = generator.generate({ ...BASE_ANALYSIS, detected_framework: 'rails' });
     expect(draft.contract.artifact_type).toBe('static');
-    expect(draft.confidence).toBe(0.40);
+    expect(draft.confidence).toBe(0.20);
   });
 
   test('aucun indicateur → artifact_type=static, confidence=0.20', () => {
