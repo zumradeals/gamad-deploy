@@ -158,6 +158,10 @@ configure_firewall() {
 clone_repo() {
   log_step "Étape 5 : Cloner le dépôt"
 
+  # Le dossier peut appartenir à l'utilisateur gamad alors que le script tourne
+  # en root → git refuse l'accès pour raison de sécurité. On l'exempte globalement.
+  git config --global --add safe.directory "${INSTALL_DIR}" 2>/dev/null || true
+
   if [[ -d "${INSTALL_DIR}/.git" ]]; then
     log_info "Le dépôt existe déjà dans ${INSTALL_DIR}. Mise à jour..."
     git -C "${INSTALL_DIR}" fetch origin "${REPO_BRANCH}"
