@@ -72,6 +72,11 @@ Toute nouvelle dépendance doit être justifiée et validée avant ajout.
   implémentation (comment concret). Tu signales toute confusion entre prototype et
   système, entre UI et logique métier.
 - Langue de travail : français professionnel clair (contexte ivoirien/africain).
+- Avant de déclarer un prompt terminé, exécuter les commandes EXACTES de la CI
+  (`pnpm -r --if-present run typecheck`, `pnpm -r --if-present run lint`,
+  `pnpm --filter <package> run test`), jamais un sous-ensemble ciblé sur un seul
+  package. Le local partiel ne prouve rien — seul le récursif reflète la CI.
+  Ne déclarer "terminé" que sur CI VERTE confirmée sur le commit de tête.
 
 ## 8. CE QUE TU NE FAIS JAMAIS
 

@@ -3,7 +3,8 @@
 // Une seule instance de worker par processus — conforme à l'architecture single-tenant VPS.
 // Connexion Redis injectée via REDIS_CONNECTION pour permettre l'override dans les tests.
 
-import { Injectable, Inject, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import type { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Worker } from 'bullmq';
 import {
   PIPELINE_QUEUE,

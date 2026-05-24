@@ -23,7 +23,7 @@ export type { JobName, JobDefinition, PipelineContext, JobResult } from './pipel
 export type { ResolvedPlan, AgentDispatchRequest, AgentCallbackEvent, AgentCallbackPayload, AgentHealthResponse, Agent } from './agent-protocol';
 
 // C-08 — PaymentProvider
-export type { InitParams, InitResult, PaymentEvent, PaymentProvider } from './payment-provider';
+export type { InitParams, InitResult, RawWebhookNotification, PaymentEvent, PaymentProvider } from './payment-provider';
 
 // C-09 — VpsProvider
 export type { ServerStatus, CreateServerParams, ProvisionedServer, VpsProvider } from './vps-provider';

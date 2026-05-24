@@ -3,7 +3,8 @@
 // Utilisé par EventsGateway (WebSocket) et directement dans les tests d'intégration.
 // Connexion pg dédiée (distincte du pool Drizzle) : LISTEN ne peut pas partager une connexion de pool.
 
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import type { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import pg from 'pg';
 import type { DeploymentState } from '@gamad/contracts';
 

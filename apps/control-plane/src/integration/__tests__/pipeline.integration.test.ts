@@ -29,8 +29,6 @@ import {
   PIPELINE_QUEUE,
   JobName,
   DEFAULT_JOB_OPTIONS,
-  AWAIT_HEALTH_INTERVAL_MS,
-  AWAIT_HEALTH_MAX_ATTEMPTS,
 } from '../../orchestration/pipeline/pipeline.constants';
 import type { PipelineJobData } from '../../orchestration/pipeline/pipeline.types';
 import { PipelineJobRunner } from '../../orchestration/processors/pipeline-job-runner';

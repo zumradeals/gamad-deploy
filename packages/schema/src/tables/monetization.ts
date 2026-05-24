@@ -60,3 +60,17 @@ export const templatePurchases = pgTable('template_purchases', {
 }, (t) => ({
   uniqueOrgTemplate: unique('uq_template_purchases_org_template').on(t.orgId, t.templateId),
 }));
+
+/** 🔒 INSERT-only — audit immuable des transitions de statut (C-11, INV-04, ADR-0011). */
+export const paymentStateTransitions = pgTable('payment_state_transitions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  transactionId: uuid('transaction_id').notNull().references(() => paymentTransactions.id),
+  orgId: uuid('org_id').notNull().references(() => organizations.id),
+  fromStatus: paymentStatusEnum('from_status'),
+  toStatus: paymentStatusEnum('to_status').notNull(),
+  eventType: text('event_type').notNull(),
+  ourReference: text('our_reference').notNull(),
+  providerReference: text('provider_reference'),
+  payloadHash: text('payload_hash').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

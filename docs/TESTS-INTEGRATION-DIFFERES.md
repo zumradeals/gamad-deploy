@@ -316,3 +316,49 @@ Les tests automatisés `E2E-01` à `E2E-04` couvrent les cas avec stubs d'agent 
 | VPS-13 Démarrage sans DATABASE_URL | P1 | Non (dégradation gracieuse) |
 | VPS-12 Contrainte slug unique | P2 | Non |
 | VPS-14 Race 3 double POST | P2 | Non (déploiements indépendants) |
+
+---
+
+## Tests différés P-08 — Monétisation GeniusPay
+
+### BILLING-01 — Encodage de la signature GeniusPay
+
+**Hypothèse :** GeniusPay envoie la signature en hexadécimal (comportement par défaut de PHP
+`hash_hmac`, page 20 de la doc API). Le code fait `Buffer.from(signature, 'hex')`.
+
+**À vérifier en sandbox avant mise en production :**
+- [ ] Envoyer un webhook de test depuis le dashboard GeniusPay
+- [ ] Logger (hors prod) le header `X-Webhook-Signature` brut
+- [ ] Confirmer : hex (a-f0-9, longueur 64) ou base64 (longueur 44 avec =)
+- [ ] Si base64 : remplacer `'hex'` par `'base64'` dans `genius-pay.provider.ts` (2 occurrences)
+
+**Impact si erroné :** tous les webhooks seront rejetés (401). Pas de risque de double activation.
+
+**Priorité :** P0 bloquant avant première transaction réelle.
+
+---
+
+### BILLING-02 — Structure exacte du payload webhook GeniusPay
+
+**Hypothèse :** le payload JSON contient `data.reference` (notre référence), `data.payment_reference`
+(référence GeniusPay), `data.context` (notre contexte retourné tel quel).
+
+**À vérifier en sandbox :**
+- [ ] Inspecter le payload JSON d'un webhook `payment.success` réel
+- [ ] Confirmer les noms de champs : `data.reference`, `data.payment_reference`, `data.context`
+- [ ] Si différent : mettre à jour le type `GeniusPayWebhookPayload` dans `genius-pay.provider.ts`
+
+**Priorité :** P0 bloquant avant première transaction réelle.
+
+---
+
+### BILLING-03 — Structure de la réponse initTransaction GeniusPay
+
+**Hypothèse :** la réponse JSON de `POST /merchant/payments` contient `payment_url` et `session_id`.
+
+**À vérifier en sandbox :**
+- [ ] Appeler l'endpoint d'init en mode test
+- [ ] Confirmer les noms de champs de la réponse
+- [ ] Si différent : mettre à jour `GeniusPayProvider.initTransaction` dans `genius-pay.provider.ts`
+
+**Priorité :** P0 bloquant avant première transaction réelle.

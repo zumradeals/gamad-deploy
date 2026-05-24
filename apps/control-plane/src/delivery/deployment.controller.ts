@@ -4,7 +4,7 @@
 // git_token : jamais loggé, jamais persisté en clair (CLAUDE.md §8).
 
 import { Controller, Post, Body, Req } from '@nestjs/common';
-import { Queue } from 'bullmq';
+import type { Queue } from 'bullmq';
 import { Inject } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
