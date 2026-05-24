@@ -11,6 +11,16 @@ import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ProjectsPage } from '@/pages/app/ProjectsPage';
 import { DeploymentWizard } from '@/pages/app/wizard/DeploymentWizard';
 import { DeploymentDetailPage } from '@/pages/app/deployments/DeploymentDetailPage';
+import { ServersPage } from '@/pages/app/servers/ServersPage';
+import { ServerDetailPage } from '@/pages/app/servers/ServerDetailPage';
+import { BillingPage } from '@/pages/app/billing/BillingPage';
+import { UpgradePage } from '@/pages/app/billing/UpgradePage';
+import { SettingsLayout, SettingsIndexRedirect } from '@/pages/app/settings/SettingsLayout';
+import { ProfilePage } from '@/pages/app/settings/ProfilePage';
+import { OrganizationPage } from '@/pages/app/settings/OrganizationPage';
+import { ApiKeysPage } from '@/pages/app/settings/ApiKeysPage';
+import { NotificationsPage } from '@/pages/app/settings/NotificationsPage';
+import { DangerPage } from '@/pages/app/settings/DangerPage';
 import { PrivateRoute } from '@/routes/PrivateRoute';
 import { PublicRoute } from '@/routes/PublicRoute';
 
@@ -40,9 +50,18 @@ export function App() {
               <Route path="/app/projects" element={<ProjectsPage />} />
               <Route path="/app/projects/new" element={<DeploymentWizard />} />
               <Route path="/app/deployments/:id" element={<DeploymentDetailPage />} />
-              {/* Placeholder routes for future phases */}
-              <Route path="/app/servers" element={<Navigate to="/app/dashboard" replace />} />
-              <Route path="/app/billing" element={<Navigate to="/app/dashboard" replace />} />
+              <Route path="/app/servers" element={<ServersPage />} />
+              <Route path="/app/servers/:serverId" element={<ServerDetailPage />} />
+              <Route path="/app/billing" element={<BillingPage />} />
+              <Route path="/app/billing/upgrade" element={<UpgradePage />} />
+              <Route path="/app/settings" element={<SettingsLayout />}>
+                <Route index element={<SettingsIndexRedirect />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="organization" element={<OrganizationPage />} />
+                <Route path="api-keys" element={<ApiKeysPage />} />
+                <Route path="notifications" element={<NotificationsPage />} />
+                <Route path="danger" element={<DangerPage />} />
+              </Route>
             </Route>
           </Route>
 

@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FolderGit2, Server, CreditCard, X } from 'lucide-react';
+import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/app/projects', icon: FolderGit2, labelKey: 'nav.projects' },
   { to: '/app/servers', icon: Server, labelKey: 'nav.servers' },
   { to: '/app/billing', icon: CreditCard, labelKey: 'nav.billing' },
+  { to: '/app/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
 
 interface SidebarProps {

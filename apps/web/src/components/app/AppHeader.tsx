@@ -18,6 +18,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   projects: 'nav.projects',
   servers: 'nav.servers',
   billing: 'nav.billing',
+  settings: 'nav.settings',
   new: 'wizard.title',
 };
 
