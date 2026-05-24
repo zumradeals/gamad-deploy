@@ -23,7 +23,7 @@
 | Infrastructure (C-09, C-07) | `servers` |
 | Projets & sources (C-02, C-03) | `projects`, `repo_contracts` |
 | Déploiement (C-04, C-05) | `deployments`, `deployment_plans` 🔒, `deployment_logs` 🔒, `deployment_state_transitions` 🔒, `deployment_snapshots` |
-| Monétisation (C-08) | `plans`, `subscriptions`, `payment_transactions` 🔒, `templates`, `template_purchases` 🔒 |
+| Monétisation (C-08) | `plans`, `subscriptions`, `payment_transactions`, `payment_state_transitions` 🔒, `templates`, `template_purchases` 🔒 |
 
 ---
 
@@ -234,7 +234,12 @@ Voir ADR-0004.*
 `subscription_status_enum` = `('pending', 'active', 'past_due', 'cancelled')`
 *L'abonnement appartient à l'organisation, pas à l'utilisateur (C-10).*
 
-### `payment_transactions` 🔒 (C-08, C-11)
+### `payment_transactions` (C-08) — statut mutable depuis ADR-0011
+
+> **ADR-0011 :** le trigger INSERT-only a été supprimé en P-08 pour permettre l'optimistic-lock
+> `UPDATE WHERE status='pending'` (idempotence financière, Garde-fou B). L'audit est assuré par
+> `payment_state_transitions` 🔒 (voir ci-dessous).
+
 | Colonne | Type | Contraintes |
 |---|---|---|
 | id | UUID | PK |
@@ -243,17 +248,35 @@ Voir ADR-0004.*
 | type | payment_type_enum | NOT NULL |
 | amount | INTEGER | NOT NULL (centimes) |
 | currency | TEXT | NOT NULL DEFAULT 'XOF' |
-| status | payment_status_enum | NOT NULL DEFAULT 'pending' |
+| status | payment_status_enum | NOT NULL DEFAULT 'pending' — mutable (ADR-0011) |
 | provider | TEXT | NOT NULL DEFAULT 'geniuspay' |
 | provider_session_id | TEXT | |
 | reference | TEXT | NOT NULL, UNIQUE (idempotence INV-07) |
 | payload_hash | TEXT | (SHA-256 du payload vérifié) |
 | metadata | JSONB | |
 | created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
-| | | 🔒 trigger : no UPDATE/DELETE |
 
 `payment_type_enum` = `('subscription', 'template_purchase', 'credits')`
 `payment_status_enum` = `('pending', 'success', 'failed')`
+
+### `payment_state_transitions` 🔒 (C-11, INV-04, ADR-0011)
+
+Table d'audit INSERT-only tracant chaque transition de statut de paiement.
+Remplace le trigger INSERT-only supprimé sur `payment_transactions`.
+
+| Colonne | Type | Contraintes |
+|---|---|---|
+| id | UUID | PK |
+| transaction_id | UUID | NOT NULL REFERENCES payment_transactions(id) |
+| org_id | UUID | NOT NULL REFERENCES organizations(id) |
+| from_status | payment_status_enum | (NULL pour création) |
+| to_status | payment_status_enum | NOT NULL |
+| event_type | TEXT | NOT NULL (ex: 'success', 'failed') |
+| our_reference | TEXT | NOT NULL (ancre d'idempotence INV-07) |
+| provider_reference | TEXT | (référence GeniusPay) |
+| payload_hash | TEXT | NOT NULL (SHA-256 du rawBody webhook) |
+| created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
+| | | 🔒 trigger : no UPDATE/DELETE |
 
 ### `templates` (marketplace)
 | Colonne | Type | Contraintes |
@@ -294,8 +317,9 @@ ces deux tables pourront être ajoutées en phase ultérieure **sans casser le s
 
 ## 3.8 — Récapitulatif des invariants appliqués
 
-- **17 tables**, UUID v4 partout (INV-05).
-- **6 tables d'audit** verrouillées au niveau base : `deployment_plans`, `deployment_logs`, `deployment_state_transitions`, `deployment_snapshots`, `payment_transactions`, `template_purchases` (INV-04). Voir ADR-0004.
+- **18 tables**, UUID v4 partout (INV-05).
+- **6 tables d'audit** verrouillées au niveau base : `deployment_plans`, `deployment_logs`, `deployment_state_transitions`, `deployment_snapshots`, `payment_state_transitions`, `template_purchases` (INV-04). Voir ADR-0004, ADR-0011.
 - **Tenant injecté** : `org_id` sur toute table métier (INV-06).
 - **Monétisation rattachée à l'organisation**, jamais à l'utilisateur seul.
 - **Devise XOF** par défaut (contexte africain).
+- **ADR-0011** : `payment_transactions` devient mutable (statut) — audit délégué à `payment_state_transitions` 🔒.

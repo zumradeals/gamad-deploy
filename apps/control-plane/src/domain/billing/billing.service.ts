@@ -1,6 +1,6 @@
 // BillingService — Domain, couche métier paiement (C-08).
 // Connaît UNIQUEMENT PaymentProviderPort et BillingRepositoryPort (INV-09).
-// JAMAIS de référence à GeniusPay, fetch, ou Drizzle dans ce fichier.
+// JAMAIS de référence au prestataire de paiement concret, fetch, ou Drizzle dans ce fichier.
 // Garde-fous financiers : vérification HMAC avant toute action, idempotence via completeIfPending.
 
 import { Injectable } from '@nestjs/common';

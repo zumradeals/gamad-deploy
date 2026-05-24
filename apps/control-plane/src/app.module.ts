@@ -21,6 +21,12 @@ import { DbProviderStub } from './orchestration/stubs/db-provider.stub';
 import { DeploymentController } from './delivery/deployment.controller';
 import { CallbackController } from './delivery/callback.controller';
 import { ContractController } from './delivery/contract.controller';
+import { BillingController } from './delivery/billing.controller';
+import { BillingService } from './domain/billing/billing.service';
+import { PaymentProviderPort } from './domain/billing/payment-provider.port';
+import { BillingRepositoryPort } from './domain/billing/billing-repository.port';
+import { GeniusPayProvider } from './adapters/genius-pay.provider';
+import { BillingRepositoryAdapter } from './adapters/billing-repository.adapter';
 import { EventsGateway } from './delivery/events.gateway';
 import { DeploymentNotifierService } from './delivery/deployment-notifier.service';
 import { DraftStoreService } from './delivery/draft-store.service';
@@ -33,7 +39,7 @@ import {
 
 @Module({
   imports: [OrchestrationModule],
-  controllers: [DeploymentController, CallbackController, ContractController],
+  controllers: [DeploymentController, CallbackController, ContractController, BillingController],
   providers: [
     // ── DB ───────────────────────────────────────────────────────────────────
     {
@@ -64,6 +70,18 @@ import {
     },
     { provide: AWAIT_HEALTH_INTERVAL_MS, useValue: 5_000 },
     { provide: AWAIT_HEALTH_MAX_ATTEMPTS, useValue: 12 },
+    // ── Ports → Adaptateurs (billing) ───────────────────────────────────────
+    BillingService,
+    { provide: BillingRepositoryPort, useClass: BillingRepositoryAdapter },
+    {
+      provide: PaymentProviderPort,
+      useFactory: () =>
+        new GeniusPayProvider(
+          process.env['GENIUSPAY_API_KEY'] ?? '',
+          process.env['GENIUSPAY_API_SECRET'] ?? '',
+          process.env['GENIUSPAY_WEBHOOK_SECRET'] ?? '',
+        ),
+    },
     // ── Domain ───────────────────────────────────────────────────────────────
     ContractGeneratorService,
     // ── Delivery ─────────────────────────────────────────────────────────────
@@ -76,7 +94,7 @@ export class AppModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(TenantMiddleware)
-      .exclude('agent/(.*)')
+      .exclude('agent/(.*)', 'webhooks/(.*)')
       .forRoutes('*');
   }
 }
