@@ -4,6 +4,9 @@
 //   2. gamad.json existant bloqué sans overwrite_existing (GAMAD_JSON_EXISTS)
 //   3. Commit direct sur branche non-défaut → pas de confirm_default_branch requis
 //   4. Commit direct sur branche par défaut sans confirm_default_branch → refus
+//
+// Sentinelle de compilation (bas de fichier) :
+//   5. commitGamadJson refuse GamadContractDraft brut — @ts-expect-error protège la régression
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import type { GamadContractDraft } from '@gamad/contracts';
@@ -199,3 +202,16 @@ describe('GithubContractAdapter — mode direct', () => {
     expect(result.mode).toBe('direct');
   });
 });
+
+// ── Sentinelle de compilation ──────────────────────────────────────────────────
+// Prouve que commitGamadJson refuse un GamadContractDraft brut (sealed type actif).
+// Cette fonction n'est jamais appelée : son corps est type-checké mais jamais exécuté.
+// Si le sealed type régresse, la directive ci-dessous devient inutilisée → tsc error → CI rouge.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _preuveCommitGamadJsonRefuseDraftBrut(
+  _adapter: GithubContractAdapter,
+  _params: GitWriteParams,
+): void {
+  // @ts-expect-error GamadContractDraft n'est pas ValidatedContractDraft — sealed type actif
+  _adapter.commitGamadJson(DRAFT, _params);
+}

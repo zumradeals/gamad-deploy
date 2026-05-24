@@ -44,13 +44,11 @@ describe('ValidatedContractDraft — consentement structurel (ADR-0009)', () => 
     );
   });
 
-  // Preuve par typecheck (pas de test runtime) :
-  // new ValidatedContractDraft(DRAFT, 'id', new Date()) → TS error: constructeur privé.
-  // GitWritePort.commitGamadJson(rawDraft, params) → TS error: type incompatible.
-  // Ces deux garanties sont vérifiées par "pnpm run typecheck" dans la CI.
-  test('la preuve structurelle est dans le typecheck CI (constructeur privé)', () => {
-    // Ce test documente la garantie — il ne peut pas échouer à l'exécution
-    // car le compilateur aurait déjà refusé le fichier.
-    expect(true).toBe(true);
+  test('constructeur privé — @ts-expect-error : toute régression rougit la CI', () => {
+    // TypeScript `private` est compile-time only : JavaScript l'ignore → pas d'erreur runtime.
+    // Si le constructeur devenait public, @ts-expect-error deviendrait une directive inutilisée
+    // → tsc refuse le fichier → CI rouge. Même principe que l'import-lint d'architecture (P-00).
+    // @ts-expect-error constructeur privé
+    new ValidatedContractDraft(DRAFT, 'id', new Date());
   });
 });
