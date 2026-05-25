@@ -25,6 +25,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 # Copy source files
 COPY packages/contracts/src   ./packages/contracts/src
 COPY packages/schema/src      ./packages/schema/src
+COPY packages/schema/drizzle.config.ts ./packages/schema/
 COPY packages/schema/migrations ./packages/schema/migrations
 COPY apps/control-plane/src   ./apps/control-plane/src
 COPY apps/control-plane/tsconfig.json ./apps/control-plane/

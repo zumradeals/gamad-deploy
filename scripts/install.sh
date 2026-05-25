@@ -515,7 +515,7 @@ NGINX_EOF
   fi
 
   # 4. Recharger nginx avec la config SSL
-  if docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -t 2>/dev/null; then
+  if docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -t; then
     docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -s reload
     log_success "nginx rechargé avec la config SSL."
   else
