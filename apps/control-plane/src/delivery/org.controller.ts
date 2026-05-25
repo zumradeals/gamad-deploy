@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Req, Query, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Inject, Req, Query, NotFoundException, ConflictException } from '@nestjs/common';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { users, organizations, organizationMembers, servers, projects, deployments } from '@gamad/schema';
@@ -144,4 +144,76 @@ export class OrgController {
 
     return rows.map((r) => ({ id: r.id, name: r.name, slug: r.slug, plan: 'free' }));
   }
+
+  /** GET /orgs/:id/servers */
+  @Get(':id/servers')
+  async listServers(@Req() req: TenantRequest) {
+    const rows = await this.db
+      .select({
+        id: servers.id,
+        name: servers.name,
+        host: servers.host,
+        port: servers.agentPort,
+        status: servers.status,
+      })
+      .from(servers)
+      .where(eq(servers.orgId, req.tenant.org_id))
+      .orderBy(desc(servers.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      host: r.host,
+      port: r.port,
+      status: toServerStatus(r.status),
+    }));
+  }
+
+  /** POST /orgs/:id/servers */
+  @Post(':id/servers')
+  async createServer(@Req() req: TenantRequest, @Body() body: CreateServerDto) {
+    const existing = await this.db
+      .select({ id: servers.id })
+      .from(servers)
+      .where(eq(servers.agentToken, body.agentToken))
+      .limit(1);
+
+    if (existing.length > 0) throw new ConflictException('Ce token agent est déjà utilisé par un autre serveur.');
+
+    const inserted = await this.db
+      .insert(servers)
+      .values({
+        orgId: req.tenant.org_id,
+        name: body.name,
+        host: body.host,
+        agentPort: body.port,
+        agentToken: body.agentToken,
+        status: 'provisioning',
+      })
+      .returning({ id: servers.id, name: servers.name, host: servers.host, port: servers.agentPort, status: servers.status });
+
+    const row = inserted[0];
+    if (!row) throw new Error('Échec de la création du serveur.');
+
+    return {
+      id: row.id,
+      name: row.name,
+      host: row.host,
+      port: row.port,
+      status: toServerStatus(row.status),
+    };
+  }
+}
+
+class CreateServerDto {
+  name!: string;
+  host!: string;
+  port!: number;
+  agentToken!: string;
+}
+
+function toServerStatus(status: string): 'online' | 'offline' | 'unknown' {
+  if (status === 'ready') return 'online';
+  if (status === 'error' || status === 'destroyed') return 'offline';
+  return 'unknown';
 }
