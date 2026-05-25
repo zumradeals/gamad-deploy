@@ -13,6 +13,7 @@ import { AuthController } from './delivery/auth.controller';
 import { AuthService } from './delivery/auth.service';
 import { UserController } from './delivery/user.controller';
 import { OrgController } from './delivery/org.controller';
+import { ServerController } from './delivery/server.controller';
 import { BillingService } from './domain/billing/billing.service';
 import { PaymentProviderPort } from './domain/billing/payment-provider.port';
 import { BillingRepositoryPort } from './domain/billing/billing-repository.port';
@@ -26,7 +27,7 @@ import { TenantMiddleware } from './persistence/tenant-middleware';
 
 @Module({
   imports: [AdaptersModule, OrchestrationModule],
-  controllers: [DeploymentController, CallbackController, ContractController, BillingController, HealthController, AuthController, UserController, OrgController],
+  controllers: [DeploymentController, CallbackController, ContractController, BillingController, HealthController, AuthController, UserController, OrgController, ServerController],
   providers: [
     // ── Ports → Adaptateurs (C-13 ContractGenerator) ─────────────────────────
     { provide: GitWritePort, useClass: GithubContractAdapter },
