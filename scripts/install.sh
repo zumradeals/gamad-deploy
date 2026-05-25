@@ -294,11 +294,14 @@ run_migrations() {
   log_success "PostgreSQL est prêt."
 
   log_info "Lancement des migrations Drizzle..."
-  docker compose -f "${COMPOSE_FILE}" exec -T control-plane \
-    pnpm --filter @gamad/schema run db:migrate
-
-  mark_ok "Migrations"
-  log_success "Migrations Drizzle appliquées avec succès."
+  if docker compose -f "${COMPOSE_FILE}" exec -T control-plane \
+      pnpm --filter @gamad/schema run db:migrate; then
+    mark_ok "Migrations"
+    log_success "Migrations Drizzle appliquées avec succès."
+  else
+    mark_fail "Migrations"
+    log_error "Échec des migrations Drizzle. Vérifiez : docker compose logs control-plane"
+  fi
 }
 
 # ── Étape 9 : Vérification de santé du control-plane ─────────────────────────
@@ -331,6 +334,9 @@ check_health() {
 }
 
 # ── Étape 10 : SSL optionnel ──────────────────────────────────────────────────
+# Stratégie : certbot tourne en conteneur Docker éphémère (webroot).
+# nginx partage les volumes certbot_conf (certs) et certbot_www (challenges).
+# Aucune dépendance à un nginx hôte — compatible stack 100% Docker.
 setup_ssl() {
   log_step "Étape 10 : SSL / Let's Encrypt"
 
@@ -339,7 +345,6 @@ setup_ssl() {
     return
   fi
 
-  # Lire DOMAIN depuis .env
   local domain certbot_email
   domain=$(grep -E "^DOMAIN=" "${ENV_FILE}" | cut -d= -f2- | tr -d '"' | tr -d "'")
   certbot_email=$(grep -E "^CERTBOT_EMAIL=" "${ENV_FILE}" | cut -d= -f2- | tr -d '"' | tr -d "'")
@@ -351,37 +356,181 @@ setup_ssl() {
   fi
 
   if [[ -z "${certbot_email}" || "${certbot_email}" == "admin@yourdomain.com" ]]; then
-    log_warn "CERTBOT_EMAIL non configuré. Utilisez --register-unsafely-without-email ou renseignez CERTBOT_EMAIL."
     certbot_email="webmaster@${domain}"
   fi
 
-  log_info "Installation de certbot..."
-  apt-get install -y -qq certbot python3-certbot-nginx
+  # Nom du projet Docker Compose = basename de INSTALL_DIR (ex: gamad-deploy)
+  local project
+  project=$(basename "${INSTALL_DIR}")
+  local vol_conf="${project}_certbot_conf"
+  local vol_www="${project}_certbot_www"
 
-  log_info "Demande de certificat pour ${domain}..."
-  certbot --nginx \
-    -d "${domain}" \
-    --non-interactive \
-    --agree-tos \
-    -m "${certbot_email}" \
-    --redirect || {
-      log_warn "certbot a échoué. Vérifiez que ${domain} pointe vers ce serveur."
-      mark_fail "SSL"
-      return
+  # 1. Recharger nginx pour qu'il serve bien la route ACME (déjà dans le .conf)
+  log_info "Rechargement nginx pour activer la route ACME challenge..."
+  docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -s reload 2>/dev/null || \
+    docker compose -f "${COMPOSE_FILE}" restart nginx
+
+  # 2. Obtenir le certificat via le conteneur Docker certbot/certbot (webroot)
+  log_info "Demande de certificat Let's Encrypt pour ${domain} (via Docker certbot)..."
+  if ! docker run --rm \
+      -v "${vol_conf}:/etc/letsencrypt" \
+      -v "${vol_www}:/var/www/certbot" \
+      certbot/certbot:latest certonly \
+      --webroot -w /var/www/certbot \
+      -d "${domain}" \
+      --email "${certbot_email}" \
+      --agree-tos --non-interactive --quiet; then
+    log_warn "certbot a échoué. Vérifiez que ${domain} pointe vers ${HOSTNAME} (port 80 accessible)."
+    mark_fail "SSL"
+    return
+  fi
+  log_success "Certificat obtenu pour ${domain}."
+
+  # 3. Écrire la config nginx complète HTTP + HTTPS (remplace la config HTTP-only)
+  if ! grep -q "listen 443" "${INSTALL_DIR}/nginx/nginx.prod.conf"; then
+    log_info "Mise à jour de la config nginx avec le serveur HTTPS..."
+    cat > "${INSTALL_DIR}/nginx/nginx.prod.conf" << NGINX_EOF
+# GAMAD Deploy — reverse proxy HTTP + HTTPS
+# Généré par install.sh après obtention du certificat SSL pour ${domain}
+
+upstream control_plane {
+    server control-plane:3000;
+    keepalive 32;
+}
+
+upstream web_app {
+    server web:80;
+    keepalive 32;
+}
+
+# Redirect HTTP → HTTPS pour le domaine + route ACME pour renouvellement
+server {
+    listen 80;
+    server_name ${domain};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
     }
 
-  # Renouvellement automatique via systemd timer (présent par défaut sur Ubuntu 22.04+)
-  if systemctl is-enabled certbot.timer &>/dev/null; then
-    log_success "Renouvellement automatique certbot (systemd timer) déjà actif."
-  else
-    # Fallback : cron
-    echo "0 3 * * * root certbot renew --quiet --post-hook 'docker compose -f ${COMPOSE_FILE} exec nginx nginx -s reload'" \
-      > /etc/cron.d/certbot-renew
-    log_success "Renouvellement certbot configuré via cron."
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
+}
+
+# HTTP wildcard (accès direct par IP)
+server {
+    listen 80 default_server;
+    server_name _;
+
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    client_max_body_size 50m;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location /api/ {
+        proxy_pass         http://control_plane/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 120s;
+    }
+
+    location /socket.io/ {
+        proxy_pass         http://control_plane/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    \$http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host       \$host;
+        proxy_set_header   X-Real-IP  \$remote_addr;
+        proxy_read_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass         http://web_app;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+    }
+}
+
+# HTTPS
+server {
+    listen 443 ssl;
+    server_name ${domain};
+
+    ssl_certificate     /etc/letsencrypt/live/${domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${domain}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    client_max_body_size 50m;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location /api/ {
+        proxy_pass         http://control_plane/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 120s;
+    }
+
+    location /socket.io/ {
+        proxy_pass         http://control_plane/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    \$http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host       \$host;
+        proxy_set_header   X-Real-IP  \$remote_addr;
+        proxy_read_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass         http://web_app;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+    }
+}
+NGINX_EOF
   fi
 
+  # 4. Recharger nginx avec la config SSL
+  if docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -t 2>/dev/null; then
+    docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -s reload
+    log_success "nginx rechargé avec la config SSL."
+  else
+    log_error "Config nginx invalide — rechargement annulé."
+    mark_fail "SSL"
+    return
+  fi
+
+  # 5. Renouvellement automatique (cron)
+  echo "0 3 * * * root docker run --rm -v ${vol_conf}:/etc/letsencrypt -v ${vol_www}:/var/www/certbot certbot/certbot:latest renew --quiet && docker compose -f ${COMPOSE_FILE} exec nginx nginx -s reload" \
+    > /etc/cron.d/certbot-gamad
+  log_success "Renouvellement automatique configuré (/etc/cron.d/certbot-gamad)."
+
   mark_ok "SSL"
-  log_success "Certificat SSL obtenu pour ${domain}."
+  log_success "https://${domain} — SSL actif."
 }
 
 # ── Rapport final ─────────────────────────────────────────────────────────────
