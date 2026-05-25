@@ -9,6 +9,8 @@ import { CallbackController } from './delivery/callback.controller';
 import { ContractController } from './delivery/contract.controller';
 import { BillingController } from './delivery/billing.controller';
 import { HealthController } from './delivery/health.controller';
+import { AuthController } from './delivery/auth.controller';
+import { AuthService } from './delivery/auth.service';
 import { BillingService } from './domain/billing/billing.service';
 import { PaymentProviderPort } from './domain/billing/payment-provider.port';
 import { BillingRepositoryPort } from './domain/billing/billing-repository.port';
@@ -22,7 +24,7 @@ import { TenantMiddleware } from './persistence/tenant-middleware';
 
 @Module({
   imports: [AdaptersModule, OrchestrationModule],
-  controllers: [DeploymentController, CallbackController, ContractController, BillingController, HealthController],
+  controllers: [DeploymentController, CallbackController, ContractController, BillingController, HealthController, AuthController],
   providers: [
     // ── Ports → Adaptateurs (C-13 ContractGenerator) ─────────────────────────
     { provide: GitWritePort, useClass: GithubContractAdapter },
@@ -44,13 +46,14 @@ import { TenantMiddleware } from './persistence/tenant-middleware';
     EventsGateway,
     DeploymentNotifierService,
     DraftStoreService,
+    AuthService,
   ],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(TenantMiddleware)
-      .exclude('agent/(.*)', 'webhooks/(.*)')
+      .exclude('agent/(.*)', 'webhooks/(.*)', 'auth/(.*)', 'health')
       .forRoutes('*');
   }
 }

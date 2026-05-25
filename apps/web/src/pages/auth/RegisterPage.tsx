@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { toast } from '@/components/ui/toast';
+import { register as registerApi } from '@/api/auth';
+import { useAuthStore } from '@/store/auth.store';
 
 const registerSchema = z
   .object({
@@ -24,14 +27,24 @@ type RegisterData = z.infer<typeof registerSchema>;
 
 export function RegisterPage() {
   const { t } = useTranslation(['auth', 'common']);
+  const navigate = useNavigate();
+  const { setToken, setCurrentOrgId } = useAuthStore();
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterData>({ resolver: zodResolver(registerSchema) });
 
-  const onSubmit = (_data: RegisterData): void => {
-    // Placeholder — implémentation API en P-10b
+  const onSubmit = async (data: RegisterData): Promise<void> => {
+    try {
+      const result = await registerApi(data.name, data.email, data.password);
+      setToken(result.token);
+      setCurrentOrgId(result.orgId);
+      void navigate('/app/dashboard');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t('register.error.generic', { ns: 'auth' });
+      toast.error(message);
+    }
   };
 
   return (
