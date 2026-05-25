@@ -49,12 +49,18 @@ export function SettingsLayout() {
     };
   }, [reset]);
 
-  // Populate store once all three queries succeed
+  // Populate store once all three queries are settled (success OR error)
   useEffect(() => {
-    if (hasLoaded.current || !profileQ.data || !orgQ.data || !notifQ.data) return;
+    if (hasLoaded.current) return;
+    const allSettled = !profileQ.isPending && !orgQ.isPending && !notifQ.isPending;
+    if (!allSettled) return;
     hasLoaded.current = true;
-    load({ profile: profileQ.data, org: orgQ.data, notifications: notifQ.data });
-  }, [profileQ.data, orgQ.data, notifQ.data, load]);
+    load({
+      profile: profileQ.data ?? { id: '', name: '', email: '', pendingEmail: null, avatarUrl: null, language: 'fr' as const, theme: 'system' as const },
+      org: orgQ.data ?? { id: currentOrgId ?? '', name: '', slug: '', plan: 'free' as const },
+      notifications: notifQ.data ?? { deploySuccess: true, deployFailed: true, rollback: true, renewalUpcoming: false, webhookUrl: '' },
+    });
+  }, [profileQ.isPending, profileQ.data, orgQ.isPending, orgQ.data, notifQ.isPending, notifQ.data, currentOrgId, load]);
 
   if (!isLoaded) return <SettingsSkeleton />;
 
