@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { toast } from '@/components/ui/toast';
+import { login as loginApi } from '@/api/auth';
+import { useAuthStore } from '@/store/auth.store';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'error.required').email('error.email'),
@@ -18,15 +20,24 @@ type LoginData = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const { t } = useTranslation(['auth', 'common']);
+  const navigate = useNavigate();
+  const { setToken, setCurrentOrgId } = useAuthStore();
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginData>({ resolver: zodResolver(loginSchema) });
 
-  const onSubmit = (_data: LoginData): void => {
-    // Placeholder — implémentation API en P-10b
-    toast.error(t('login.error.invalid', { ns: 'auth' }));
+  const onSubmit = async (data: LoginData): Promise<void> => {
+    try {
+      const result = await loginApi(data.email, data.password);
+      setToken(result.token);
+      setCurrentOrgId(result.orgId);
+      void navigate('/app/dashboard');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t('login.error.invalid', { ns: 'auth' });
+      toast.error(message);
+    }
   };
 
   return (
