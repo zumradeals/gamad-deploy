@@ -1,5 +1,5 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import type { AuthService } from './auth.service';
+import { Controller, Post, Body, HttpCode, HttpStatus, Inject } from '@nestjs/common';
+import { AuthService } from './auth.service';
 
 class RegisterDto {
   fullName!: string;
@@ -14,7 +14,9 @@ class LoginDto {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  // @Inject(AuthService) ensures NestJS uses the class as the DI token directly,
+  // bypassing design:paramtypes metadata (which esbuild may emit as Object for class deps).
+  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Post('register')
   register(@Body() body: RegisterDto) {
