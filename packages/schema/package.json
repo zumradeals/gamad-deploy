@@ -10,7 +10,7 @@
     "lint": "eslint src --ext .ts",
     "test": "vitest run --reporter=verbose",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts"
   },
   "dependencies": {
     "@gamad/contracts": "workspace:*",
