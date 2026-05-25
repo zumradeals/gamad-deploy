@@ -515,11 +515,14 @@ NGINX_EOF
   fi
 
   # 4. Recharger nginx avec la config SSL
-  if docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -t; then
-    docker compose -f "${COMPOSE_FILE}" exec -T nginx nginx -s reload
-    log_success "nginx rechargé avec la config SSL."
+  # Note : nginx -t résout les upstreams DNS et échoue si un conteneur est down.
+  # On redémarre nginx directement — si la config est invalide, il ne démarrera pas.
+  docker compose -f "${COMPOSE_FILE}" restart nginx
+  sleep 3
+  if docker compose -f "${COMPOSE_FILE}" ps nginx | grep -q "Up\|running"; then
+    log_success "nginx redémarré avec la config SSL."
   else
-    log_error "Config nginx invalide — rechargement annulé."
+    log_error "nginx n'a pas démarré. Vérifiez : docker compose logs nginx"
     mark_fail "SSL"
     return
   fi

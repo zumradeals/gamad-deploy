@@ -33,5 +33,5 @@ COPY tsconfig.base.json ./
 
 EXPOSE 3000
 
-# tsx resolves TypeScript imports (including Bundler moduleResolution) at runtime
-CMD ["tsx", "apps/control-plane/src/main.ts"]
+# --tsconfig ensures esbuild picks up experimentalDecorators + emitDecoratorMetadata
+CMD ["tsx", "--tsconfig", "apps/control-plane/tsconfig.json", "apps/control-plane/src/main.ts"]
