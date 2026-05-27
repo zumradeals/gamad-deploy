@@ -228,7 +228,9 @@ export class OrgController {
         .map((f) => f.path);
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
-      throw new BadRequestException("Impossible de contacter l'API GitHub. Vérifiez la connectivité.");
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error(`[analyzeRepo] fetch GitHub failed: ${reason}`);
+      throw new BadRequestException(`Impossible de contacter l'API GitHub (${reason}). Vérifiez la connectivité.`);
     }
 
     let detectedFramework = '';
@@ -298,7 +300,8 @@ export class OrgController {
 
     const port = pdn.runtime.ports['http'] ?? 3000;
     const healthUrl = pdn.health_checks[0]?.url ?? `http://localhost:${port}/health`;
-    const healthCheckPath = new URL(healthUrl).pathname;
+    let healthCheckPath = '/health';
+    try { healthCheckPath = new URL(healthUrl).pathname; } catch { /* URL non-absolue → fallback /health */ }
     const stack = buildStackLabel(detectedFramework, pdn.artifact.kind);
 
     return {
