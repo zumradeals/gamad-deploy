@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Inject, Req, Query, NotFoundException, ConflictException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Inject, Req, Query, NotFoundException } from '@nestjs/common';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { users, organizations, organizationMembers, servers, projects, deployments } from '@gamad/schema';
@@ -172,13 +172,8 @@ export class OrgController {
   /** POST /orgs/:id/servers */
   @Post(':id/servers')
   async createServer(@Req() req: TenantRequest, @Body() body: CreateServerDto) {
-    const existing = await this.db
-      .select({ id: servers.id })
-      .from(servers)
-      .where(eq(servers.agentToken, body.agentToken))
-      .limit(1);
-
-    if (existing.length > 0) throw new ConflictException('Ce token agent est déjà utilisé par un autre serveur.');
+    const { randomBytes } = await import('crypto');
+    const agentToken = randomBytes(32).toString('hex');
 
     const inserted = await this.db
       .insert(servers)
@@ -187,7 +182,7 @@ export class OrgController {
         name: body.name,
         host: body.host,
         agentPort: body.port,
-        agentToken: body.agentToken,
+        agentToken,
         status: 'provisioning',
       })
       .returning({ id: servers.id, name: servers.name, host: servers.host, port: servers.agentPort, status: servers.status });
@@ -195,12 +190,15 @@ export class OrgController {
     const row = inserted[0];
     if (!row) throw new Error('Échec de la création du serveur.');
 
+    // Le token complet est retourné une seule fois à la création.
+    // Après, seuls les 4 derniers caractères (tokenSuffix) sont exposés (CLAUDE.md §8).
     return {
       id: row.id,
       name: row.name,
       host: row.host,
       port: row.port,
       status: toServerStatus(row.status),
+      token: agentToken,
     };
   }
 }
@@ -209,7 +207,6 @@ class CreateServerDto {
   name!: string;
   host!: string;
   port!: number;
-  agentToken!: string;
 }
 
 function toServerStatus(status: string): 'online' | 'offline' | 'unknown' {

@@ -20,6 +20,11 @@ export interface Server {
   status: 'online' | 'offline' | 'unknown';
 }
 
+/** Réponse à la création — token complet affiché une seule fois (CLAUDE.md §8). */
+export interface ServerCreatedResult extends Server {
+  token: string;
+}
+
 export interface ServerDetail extends Server {
   agentVersion: string;
   lastActivityAt: string | null;
