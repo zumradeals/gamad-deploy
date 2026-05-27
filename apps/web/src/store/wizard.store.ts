@@ -8,7 +8,6 @@ export interface NewServerForm {
   name: string;
   host: string;
   port: string;
-  agentToken: string;
 }
 
 interface WizardState {

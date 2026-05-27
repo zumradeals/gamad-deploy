@@ -14,8 +14,11 @@ import { useAuthStore } from '@/store/auth.store';
 import { useWizardStore } from '@/store/wizard.store';
 import type { ProjectType } from '@/store/wizard.store';
 import { useAnalyzeRepo } from '@/api/projects';
-import { useServers } from '@/api/servers';
+import { useServers, useCreateServer } from '@/api/servers';
+import type { ServerCreatedResult } from '@/api/types';
 import { useCreateDeployment } from '@/api/deployments';
+import { SecretRevealModal } from '@/components/app/SecretRevealModal';
+import { buildDockerRunCommand } from '@/lib/agent';
 
 // ── Stepper ──────────────────────────────────────────────────────────────────
 
@@ -268,30 +271,41 @@ const newServerSchema = z.object({
   name: z.string().min(1, 'error.required'),
   host: z.string().min(1, 'error.required'),
   port: z.string().regex(/^\d+$/, 'error.required'),
-  agentToken: z.string().min(1, 'error.required'),
 });
-type NewServerForm = z.infer<typeof newServerSchema>;
+type NewServerFormValues = z.infer<typeof newServerSchema>;
 
 function Step4() {
-  const { t } = useTranslation(['wizard', 'common']);
+  const { t } = useTranslation(['wizard', 'common', 'servers']);
   const currentOrgId = useAuthStore((s) => s.currentOrgId);
-  const { serverId, setServerId, setNewServer, setStep } = useWizardStore();
-  const { data: servers, isLoading: serversLoading } = useServers(currentOrgId);
+  const { serverId, setServerId, setStep } = useWizardStore();
+  const { data: serverList, isLoading: serversLoading } = useServers(currentOrgId);
+  const createServer = useCreateServer(currentOrgId);
   const [showNewServer, setShowNewServer] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [createdServer, setCreatedServer] = useState<ServerCreatedResult | null>(null);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<NewServerForm>({
+  const { register, handleSubmit, formState: { errors } } = useForm<NewServerFormValues>({
     resolver: zodResolver(newServerSchema),
   });
 
   const advance = () => {
-    if (!serverId && !showNewServer) { setServerError(t('server.required', { ns: 'wizard' })); return; }
+    if (!serverId) { setServerError(t('server.required', { ns: 'wizard' })); return; }
     setStep(5);
   };
 
-  const onNewServerSubmit = (data: NewServerForm) => {
-    setNewServer(data);
-    setStep(5);
+  const onNewServerSubmit = (data: NewServerFormValues) => {
+    createServer.mutate(
+      { name: data.name, host: data.host, port: parseInt(data.port, 10) },
+      {
+        onSuccess: (result) => {
+          setServerId(result.id);
+          setCreatedServer(result);
+        },
+        onError: () => {
+          toast.error(t('server.create.error', { ns: 'wizard' }));
+        },
+      },
+    );
   };
 
   return (
@@ -304,11 +318,11 @@ function Step4() {
           <Label>{t('server.select.label', { ns: 'wizard' })}</Label>
           {serversLoading ? (
             <p className="text-sm text-[--text-muted]">{t('server.loading', { ns: 'wizard' })}</p>
-          ) : (servers?.length ?? 0) === 0 ? (
+          ) : (serverList?.length ?? 0) === 0 ? (
             <p className="text-sm text-[--text-muted]">{t('server.none', { ns: 'wizard' })}</p>
           ) : (
             <div className="space-y-2">
-              {servers?.map((s) => (
+              {serverList?.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => { setServerId(s.id); setServerError(null); }}
@@ -357,22 +371,34 @@ function Step4() {
               {errors.port && <p className="text-xs text-red-500">{t(errors.port.message ?? 'error.required', { ns: 'common' })}</p>}
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="srvToken">{t('server.token', { ns: 'wizard' })}</Label>
-            <Input id="srvToken" type="password" placeholder={t('server.token.placeholder', { ns: 'wizard' })} {...register('agentToken')} />
-            <p className="text-xs text-[--text-muted]">{t('server.token.hint', { ns: 'wizard' })}</p>
-            {errors.agentToken && <p className="text-xs text-red-500">{t(errors.agentToken.message ?? 'error.required', { ns: 'common' })}</p>}
-          </div>
           <div className="flex gap-3">
             <Button type="button" variant="outline" onClick={() => setShowNewServer(false)} className="flex-1">
               {t('back')}
             </Button>
-            <Button type="submit" className="flex-1">{t('next')}</Button>
+            <Button type="submit" disabled={createServer.isPending} className="flex-1 gap-2">
+              {createServer.isPending && <Loader2 size={14} className="animate-spin" />}
+              {t('server.create', { ns: 'wizard' })}
+            </Button>
           </div>
         </form>
       )}
 
       {!showNewServer && <StepFooter onNext={advance} onBack={() => setStep(3)} />}
+
+      {/* Install modal — shown after new server created, onClose advances to Step 5 */}
+      {createdServer && (
+        <SecretRevealModal
+          open={!!createdServer}
+          onClose={() => { setCreatedServer(null); setStep(5); }}
+          title={t('modal.install.title', { ns: 'servers' })}
+          description={t('modal.install.desc', { ns: 'servers' })}
+          secret={buildDockerRunCommand(createdServer.port, createdServer.token)}
+          confirmLabel={t('modal.install.confirm', { ns: 'servers' })}
+          closeLabel={t('modal.install.close', { ns: 'servers' })}
+          copyLabel={t('modal.install.copy', { ns: 'servers' })}
+          copiedLabel={t('modal.install.copied', { ns: 'servers' })}
+        />
+      )}
     </div>
   );
 }
@@ -450,6 +476,10 @@ function Step6() {
         serverId: wizard.serverId,
         ...(wizard.domain ? { domain: wizard.domain } : {}),
         httpsEnabled: wizard.httpsEnabled,
+        hasCompose: wizard.analysisResult?.hasCompose ?? false,
+        hasDockerfile: wizard.analysisResult?.hasDockerfile ?? false,
+        hasGamadJson: wizard.analysisResult?.hasGamadJson ?? false,
+        detectedFramework: wizard.analysisResult?.detectedFramework ?? '',
       },
       {
         onSuccess: (deployment) => {
