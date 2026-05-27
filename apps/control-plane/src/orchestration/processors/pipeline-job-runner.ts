@@ -47,7 +47,7 @@ export class PipelineJobRunner {
       // Marqueur d'idempotence : INSERT après que l'action a réussi.
       await this.repo.markStepDone(jobData.deploymentId, jobName, tenantCtx);
     } catch (error) {
-      await this.handleFailure(jobName, jobData.deploymentId, tenantCtx, error);
+      await this.handleFailure(jobName, jobData.deploymentId, tenantCtx, error, jobData.serverId);
     }
   }
 
@@ -81,8 +81,9 @@ export class PipelineJobRunner {
     deploymentId: string,
     ctx: TenantContext,
     error: unknown,
+    serverId?: string,
   ): Promise<void> {
-    const currentState = await this.repo.getDeploymentState(deploymentId);
+    const currentState = await this.repo.getDeploymentState(deploymentId, ctx);
 
     // Transition RUNNING → FAILED via Domain (valide la légalité).
     // Si l'état n'est plus RUNNING (ex : retry après un handleFailure partiel), on ne retente pas.
@@ -99,10 +100,12 @@ export class PipelineJobRunner {
 
     // INV-08 : on_error_stop → rollback si le PDN le prescrit.
     const pdn = await this.repo.getPlan(deploymentId);
-    if (pdn?.policies.on_error_stop) {
+    if (pdn?.policies.on_error_stop && serverId) {
+      const server = await this.repo.getServer(serverId, ctx);
       await this.agentPort.rollback(
         deploymentId,
         pdn.source.fingerprint.commit_sha ?? '',
+        server,
       );
     }
     // Ne pas re-throw : le job est considéré terminé (état FAILED enregistré).

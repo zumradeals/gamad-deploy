@@ -6,8 +6,11 @@ import type { DeploymentState, PlanDeDeploiementNormalise, TenantContext } from 
 // (state_transitions + deployment_logs). Les deux sont indissociables pour l'audit.
 
 export abstract class PipelineRepositoryPort {
-  /** État courant du déploiement. */
-  abstract getDeploymentState(deploymentId: string): Promise<DeploymentState>;
+  /** État courant du déploiement — exige le contexte tenant (RLS sur deployments). */
+  abstract getDeploymentState(deploymentId: string, ctx: TenantContext): Promise<DeploymentState>;
+
+  /** Credentials du serveur VPS pour dispatcher l'agent — exige le contexte tenant (RLS sur servers). */
+  abstract getServer(serverId: string, ctx: TenantContext): Promise<{ host: string; agentPort: number; agentToken: string }>;
 
   /** PDN persisté (null si resolve-source n'a pas encore tourné). */
   abstract getPlan(deploymentId: string): Promise<PlanDeDeploiementNormalise | null>;

@@ -25,17 +25,20 @@ export class AwaitHealthProcessor {
   ) {}
 
   async process(job: Job<PipelineJobData>): Promise<void> {
-    const { deploymentId } = job.data;
+    const { deploymentId, serverId } = job.data;
 
     await this.runner.run(JobName.AWAIT_HEALTH, job.data, async (ctx) => {
       const pdn = await this.runner.repo.getPlan(deploymentId);
       if (!pdn) throw new Error('PDN introuvable — resolve-source doit précéder await-health');
+      if (!serverId) throw new Error('serverId manquant dans le job await-health');
+
+      const server = await this.runner.repo.getServer(serverId, ctx.tenantCtx);
 
       for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
-        const result = await this.agentPort.checkHealth(deploymentId, pdn.health_checks);
+        const result = await this.agentPort.checkHealth(deploymentId, pdn.health_checks, server);
 
         if (result.passed) {
-          const currentState = await this.runner.repo.getDeploymentState(deploymentId);
+          const currentState = await this.runner.repo.getDeploymentState(deploymentId, ctx.tenantCtx);
           // Domain valide RUNNING → SUCCESS (INV-03 : succès = checks OK, jamais "build réussi").
           await ctx.transition(currentState, 'SUCCESS', 'Tous les health checks ont passé');
           return;

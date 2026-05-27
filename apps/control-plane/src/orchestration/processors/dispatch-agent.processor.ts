@@ -2,7 +2,8 @@
 // Envoie le PDN à l'agent VPS pour exécution (C-06/C-07).
 // Idempotence (INV-07) : l'agent vérifie le deploymentId côté stub/implémentation réelle ;
 // un double dispatch pour le même deploymentId est absorbé.
-// Pas de transition d'état : on reste RUNNING, on journalise le agentJobId.
+// Les credentials du serveur (host/agentPort/agentToken) sont lus depuis la DB — jamais depuis
+// des env vars globaux — pour garantir le routage multi-serveur correct (INV-09).
 
 import { Injectable, Inject } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
@@ -23,13 +24,15 @@ export class DispatchAgentProcessor {
   ) {}
 
   async process(job: Job<PipelineJobData>): Promise<void> {
-    const { deploymentId } = job.data;
+    const { deploymentId, serverId } = job.data;
 
     await this.runner.run(JobName.DISPATCH_AGENT, job.data, async (ctx) => {
       const pdn = await this.runner.repo.getPlan(deploymentId);
       if (!pdn) throw new Error('PDN introuvable — resolve-source doit précéder dispatch-agent');
+      if (!serverId) throw new Error('serverId manquant dans le job dispatch-agent');
 
-      const { agentJobId } = await this.agentPort.dispatch(deploymentId, pdn);
+      const server = await this.runner.repo.getServer(serverId, ctx.tenantCtx);
+      const { agentJobId } = await this.agentPort.dispatch(deploymentId, pdn, server);
       await ctx.log(`Agent dispatché, agentJobId=${agentJobId}`);
 
       await this.queue.add(JobName.AWAIT_HEALTH, job.data, AWAIT_HEALTH_JOB_OPTIONS);

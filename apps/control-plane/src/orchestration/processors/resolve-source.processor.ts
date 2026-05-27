@@ -25,7 +25,7 @@ export class ResolveSourceProcessor {
     const { deploymentId, repoAnalysis } = job.data;
 
     await this.runner.run(JobName.RESOLVE_SOURCE, job.data, async (ctx) => {
-      const currentState = await this.runner.repo.getDeploymentState(deploymentId);
+      const currentState = await this.runner.repo.getDeploymentState(deploymentId, ctx.tenantCtx);
 
       // Domain valide PENDING → RUNNING avant toute écriture.
       await ctx.transition(currentState, 'RUNNING', 'Démarrage du pipeline de déploiement');

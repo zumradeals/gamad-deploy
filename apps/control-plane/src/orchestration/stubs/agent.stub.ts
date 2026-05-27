@@ -3,7 +3,7 @@
 
 import { Injectable } from '@nestjs/common';
 import type { HealthCheck, PlanDeDeploiementNormalise } from '@gamad/contracts';
-import { AgentPort } from '../ports/agent.port';
+import { AgentPort, type ServerEndpoint } from '../ports/agent.port';
 
 @Injectable()
 export class AgentStub extends AgentPort {
@@ -20,19 +20,25 @@ export class AgentStub extends AgentPort {
   override async dispatch(
     deploymentId: string,
     pdn: PlanDeDeploiementNormalise,
+    _server: ServerEndpoint,
   ): Promise<{ agentJobId: string }> {
     this.dispatches.push({ deploymentId, pdn });
     if (this._failDispatch) throw new Error('AgentStub : dispatch simulé en échec');
     return { agentJobId: `stub-${deploymentId}` };
   }
 
-  override async rollback(deploymentId: string, snapshotRef: string): Promise<void> {
+  override async rollback(
+    deploymentId: string,
+    snapshotRef: string,
+    _server: ServerEndpoint,
+  ): Promise<void> {
     this.rollbacks.push({ deploymentId, snapshotRef });
   }
 
   override async checkHealth(
     deploymentId: string,
     _checks: HealthCheck[],
+    _server: ServerEndpoint,
   ): Promise<{ passed: boolean; details: string[] }> {
     this.healthChecks.push({ deploymentId });
     return { passed: this._healthPassed, details: this._healthPassed ? [] : ['stub: check failed'] };

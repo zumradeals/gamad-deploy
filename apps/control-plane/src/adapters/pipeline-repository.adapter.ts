@@ -14,6 +14,7 @@ import {
   deploymentPlans,
   deploymentLogs,
   deploymentStateTransitions,
+  servers,
   withTenantTx,
 } from '@gamad/schema';
 import { PipelineRepositoryPort } from '../orchestration/ports/pipeline-repository.port';
@@ -31,14 +32,34 @@ const IDEMPOTENCE_PREFIX = '__done:';
 export class PipelineRepositoryAdapter extends PipelineRepositoryPort {
   constructor(@Inject(DB_TOKEN) private readonly db: NodePgDatabase) { super(); }
 
-  override async getDeploymentState(deploymentId: string): Promise<DeploymentState> {
-    const [row] = await this.db
-      .select({ status: deployments.status })
-      .from(deployments)
-      .where(eq(deployments.id, deploymentId))
-      .limit(1);
-    if (!row) throw new Error(`Déploiement introuvable : ${deploymentId}`);
-    return toDomain(row.status);
+  // RLS sur deployments — OBLIGATOIREMENT dans withTenantTx (ADR-0005, INV-06).
+  override async getDeploymentState(deploymentId: string, ctx: TenantContext): Promise<DeploymentState> {
+    let status: string | undefined;
+    await withTenantTx(this.db, ctx, async (tx) => {
+      const [row] = await tx
+        .select({ status: deployments.status })
+        .from(deployments)
+        .where(eq(deployments.id, deploymentId))
+        .limit(1);
+      status = row?.status;
+    });
+    if (!status) throw new Error(`Déploiement introuvable : ${deploymentId}`);
+    return toDomain(status);
+  }
+
+  // RLS sur servers — OBLIGATOIREMENT dans withTenantTx (ADR-0005, INV-06).
+  override async getServer(serverId: string, ctx: TenantContext): Promise<{ host: string; agentPort: number; agentToken: string }> {
+    let result: { host: string; agentPort: number; agentToken: string } | undefined;
+    await withTenantTx(this.db, ctx, async (tx) => {
+      const [row] = await tx
+        .select({ host: servers.host, agentPort: servers.agentPort, agentToken: servers.agentToken })
+        .from(servers)
+        .where(eq(servers.id, serverId))
+        .limit(1);
+      result = row;
+    });
+    if (!result) throw new Error(`Serveur introuvable : ${serverId}`);
+    return result;
   }
 
   override async getPlan(deploymentId: string): Promise<PlanDeDeploiementNormalise | null> {

@@ -199,6 +199,7 @@ export class DeploymentController {
       deploymentId,
       orgId: ctx.org_id,
       userId: ctx.user_id,
+      serverId: body.serverId,
       repoAnalysis: {
         repo_url: body.repoUrl,
         ref: { type: 'branch' as const, value: body.branch },
