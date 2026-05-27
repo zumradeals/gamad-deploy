@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
@@ -155,8 +155,11 @@ function Step2() {
           setAnalysisResult(result);
           setStep(3);
         },
-        onError: () => {
-          toast.error(t('analyze.error', { ns: 'wizard' }));
+        onError: (error: Error) => {
+          const detail = error.message && error.message !== 'Internal server error'
+            ? error.message
+            : t('analyze.error', { ns: 'wizard' });
+          toast.error(detail);
         },
       },
     );
@@ -580,8 +583,6 @@ function StepFooter({
 }
 
 // ── Wizard root ───────────────────────────────────────────────────────────────
-
-import { useState } from 'react';
 
 const STEP_COMPONENTS: Record<number, React.ComponentType> = {
   1: Step1,
