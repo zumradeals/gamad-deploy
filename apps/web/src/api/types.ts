@@ -92,6 +92,10 @@ export interface AnalysisResult {
   ports: number[];
   healthCheckPath: string;
   assumptions: string[];
+  hasCompose: boolean;
+  hasDockerfile: boolean;
+  hasGamadJson: boolean;
+  detectedFramework: string;
 }
 
 export interface LogLine {

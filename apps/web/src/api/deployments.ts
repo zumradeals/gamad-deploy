@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from './client';
 import type { Deployment, DeploymentDetail } from './types';
 
+interface CreateDeploymentResponse {
+  id: string;
+}
+
 export function useDeployments(orgId: string | null) {
   return useQuery({
     queryKey: ['orgs', orgId, 'deployments'],
@@ -30,13 +34,17 @@ interface CreateDeploymentInput {
   serverId: string;
   domain?: string;
   httpsEnabled: boolean;
+  hasCompose: boolean;
+  hasDockerfile: boolean;
+  hasGamadJson: boolean;
+  detectedFramework: string;
 }
 
 export function useCreateDeployment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateDeploymentInput) =>
-      apiRequest<Deployment>('/deployments', {
+      apiRequest<CreateDeploymentResponse>('/deployments', {
         method: 'POST',
         body: JSON.stringify(input),
       }),
