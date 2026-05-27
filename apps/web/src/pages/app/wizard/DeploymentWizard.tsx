@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -597,7 +597,22 @@ const TOTAL_STEPS = 6;
 export function DeploymentWizard() {
   const { t } = useTranslation('wizard');
   const { step } = useWizardStore();
+  const location = useLocation();
   const StepComponent = STEP_COMPONENTS[step] ?? Step1;
+
+  // Pre-fill from ProjectsPage "Deploy" button: skip wizard, jump to summary.
+  useEffect(() => {
+    const state = location.state as { repoUrl?: string; branch?: string; serverId?: string } | null;
+    if (state?.repoUrl) {
+      const s = useWizardStore.getState();
+      s.reset();
+      s.setProjectType('git');
+      s.setRepoUrl(state.repoUrl);
+      s.setBranch(state.branch ?? 'main');
+      s.setServerId(state.serverId ?? null);
+      s.setStep(6);
+    }
+  }, []); // intentionally empty — process router state once on mount
 
   return (
     <div className="max-w-2xl mx-auto">
