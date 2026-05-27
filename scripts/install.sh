@@ -166,7 +166,8 @@ clone_repo() {
     log_info "Le dépôt existe déjà dans ${INSTALL_DIR}. Mise à jour..."
     git -C "${INSTALL_DIR}" fetch origin "${REPO_BRANCH}"
     git -C "${INSTALL_DIR}" checkout "${REPO_BRANCH}"
-    git -C "${INSTALL_DIR}" pull --ff-only origin "${REPO_BRANCH}"
+    # Écrase les éventuelles modifications locales (config nginx regénérée, etc.)
+    git -C "${INSTALL_DIR}" reset --hard "origin/${REPO_BRANCH}"
     mark_skip "Clone dépôt"
     log_success "Dépôt mis à jour sur la branche ${REPO_BRANCH}."
   else
@@ -431,6 +432,16 @@ server {
         root /var/www/certbot;
     }
 
+    location /api/events {
+        proxy_pass         http://control_plane/events;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    \$http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host       \$host;
+        proxy_set_header   X-Real-IP  \$remote_addr;
+        proxy_read_timeout 3600s;
+    }
+
     location /api/ {
         proxy_pass         http://control_plane/;
         proxy_http_version 1.1;
@@ -480,6 +491,16 @@ server {
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
+    }
+
+    location /api/events {
+        proxy_pass         http://control_plane/events;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    \$http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host       \$host;
+        proxy_set_header   X-Real-IP  \$remote_addr;
+        proxy_read_timeout 3600s;
     }
 
     location /api/ {
