@@ -16,8 +16,7 @@ import { useServers, useCreateServer } from '@/api/servers';
 import type { ServerCreatedResult } from '@/api/types';
 import { cn } from '@/lib/utils';
 
-const INSTALL_SCRIPT_URL =
-  'https://raw.githubusercontent.com/zumradeals/gamad-deploy/main/scripts/install-agent.sh';
+const AGENT_IMAGE = 'ghcr.io/zumradeals/gamad-deploy/agent:latest';
 
 const STATUS_CLASSES: Record<'online' | 'offline' | 'unknown', string> = {
   online: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -33,7 +32,19 @@ const serverSchema = z.object({
 type ServerForm = z.infer<typeof serverSchema>;
 
 function buildInstallCommand(server: ServerCreatedResult): string {
-  return `curl -fsSL ${INSTALL_SCRIPT_URL} \\\n  | AGENT_TOKEN=${server.token} PORT=${server.port} bash`;
+  return [
+    `docker run -d \\`,
+    `  --name gamad-agent \\`,
+    `  --restart unless-stopped \\`,
+    `  -p ${server.port}:${server.port} \\`,
+    `  -e "AGENT_TOKEN=${server.token}" \\`,
+    `  -v /var/lib/gamad:/var/lib/gamad \\`,
+    `  -v /var/run/docker.sock:/var/run/docker.sock \\`,
+    `  -v /etc/nginx:/etc/nginx \\`,
+    `  -v /etc/letsencrypt:/etc/letsencrypt \\`,
+    `  --privileged \\`,
+    `  ${AGENT_IMAGE}`,
+  ].join('\n');
 }
 
 export function ServersPage() {
