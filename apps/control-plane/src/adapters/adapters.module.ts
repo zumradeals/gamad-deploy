@@ -15,8 +15,9 @@ import {
   AWAIT_HEALTH_INTERVAL_MS,
   AWAIT_HEALTH_MAX_ATTEMPTS,
 } from '../orchestration/pipeline/pipeline.constants';
+import { CONTROL_PLANE_URL } from './adapters.constants';
 
-export const CONTROL_PLANE_URL = 'CONTROL_PLANE_URL';
+export { CONTROL_PLANE_URL } from './adapters.constants';
 
 @Global()
 @Module({
