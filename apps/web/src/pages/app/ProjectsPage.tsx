@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, FolderGit2, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ export function ProjectsPage() {
   const currentOrgId = useAuthStore((s) => s.currentOrgId);
   const { data: projects, isLoading } = useProjects(currentOrgId);
   const [statusFilter, setStatusFilter] = useState<DeploymentStatus | 'ALL'>('ALL');
+  const navigate = useNavigate();
 
   const filtered = projects?.filter((p) =>
     statusFilter === 'ALL' || p.lastDeploymentStatus === statusFilter,
@@ -80,15 +81,34 @@ export function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => (
-            <div key={p.id} className="rounded-lg border border-[--border] bg-[--surface] p-5 space-y-3 hover:border-[--accent] transition-colors">
-              <div>
-                <p className="font-semibold text-[--text] truncate">{p.name}</p>
-                <p className="text-xs text-[--text-muted] font-mono truncate mt-0.5">{p.repoUrl}</p>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-[--text-muted]">
-                <span>{t('card.server', { ns: 'project' })} : {p.serverName}</span>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-[--border]">
+            <div key={p.id} className="rounded-lg border border-[--border] bg-[--surface] hover:border-[--accent] transition-colors flex flex-col">
+              {/* Card body — cliquable vers le dernier déploiement si disponible */}
+              {p.lastDeploymentId ? (
+                <Link
+                  to={`/app/deployments/${p.lastDeploymentId}`}
+                  className="block p-5 pb-3 space-y-3 flex-1"
+                >
+                  <div>
+                    <p className="font-semibold text-[--text] truncate">{p.name}</p>
+                    <p className="text-xs text-[--text-muted] font-mono truncate mt-0.5">{p.repoUrl}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-[--text-muted]">
+                    <span>{t('card.server', { ns: 'project' })} : {p.serverName}</span>
+                  </div>
+                </Link>
+              ) : (
+                <div className="p-5 pb-3 space-y-3 flex-1">
+                  <div>
+                    <p className="font-semibold text-[--text] truncate">{p.name}</p>
+                    <p className="text-xs text-[--text-muted] font-mono truncate mt-0.5">{p.repoUrl}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-[--text-muted]">
+                    <span>{t('card.server', { ns: 'project' })} : {p.serverName}</span>
+                  </div>
+                </div>
+              )}
+              {/* Action bar */}
+              <div className="flex items-center justify-between px-5 pb-5 pt-2 border-t border-[--border]">
                 <div>
                   {p.lastDeploymentStatus ? (
                     <StatusBadge status={p.lastDeploymentStatus} />
@@ -96,12 +116,17 @@ export function ProjectsPage() {
                     <span className="text-xs text-[--text-muted]">{t('card.never', { ns: 'project' })}</span>
                   )}
                 </div>
-                <Link to="/app/projects/new">
-                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
-                    <Rocket size={12} />
-                    {t('card.deploy', { ns: 'project' })}
-                  </Button>
-                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 h-7 text-xs"
+                  onClick={() => navigate('/app/projects/new', {
+                    state: { repoUrl: p.repoUrl, branch: p.branch, serverId: p.serverId },
+                  })}
+                >
+                  <Rocket size={12} />
+                  {t('card.deploy', { ns: 'project' })}
+                </Button>
               </div>
             </div>
           ))}
