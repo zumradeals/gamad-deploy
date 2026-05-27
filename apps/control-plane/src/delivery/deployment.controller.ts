@@ -209,6 +209,7 @@ export class DeploymentController {
         detected_framework: body.detectedFramework,
         detected_runtime: body.detectedFramework ? 'node' : '',
       },
+      ...(body.gitToken ? { gitToken: body.gitToken } : {}),
     };
 
     await this.queue.add(JobName.RESOLVE_SOURCE, jobData, DEFAULT_JOB_OPTIONS);

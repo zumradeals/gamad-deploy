@@ -13,4 +13,10 @@ export interface PipelineJobData {
   serverId: string;
   /** Présent uniquement pour resolve-source ; absent pour les étapes suivantes. */
   repoAnalysis?: RepoAnalysis;
+  /**
+   * Token git pour cloner un repo privé — passé à l'agent au dispatch (INV-09).
+   * Jamais persisté en DB ni loggé (CLAUDE.md §8) : stocké uniquement dans Redis
+   * le temps du pipeline, supprimé avec le job (removeOnComplete: true).
+   */
+  gitToken?: string;
 }
