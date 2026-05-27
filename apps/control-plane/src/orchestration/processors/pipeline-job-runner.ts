@@ -85,9 +85,9 @@ export class PipelineJobRunner {
   ): Promise<void> {
     const currentState = await this.repo.getDeploymentState(deploymentId, ctx);
 
-    // Transition RUNNING → FAILED via Domain (valide la légalité).
-    // Si l'état n'est plus RUNNING (ex : retry après un handleFailure partiel), on ne retente pas.
-    if (currentState === 'RUNNING') {
+    // Transition (PENDING|RUNNING) → FAILED via Domain (valide la légalité, ADR-0012).
+    // Si l'état est déjà FAILED ou terminal (retry après handleFailure partiel), on ne retente pas.
+    if (currentState === 'RUNNING' || currentState === 'PENDING') {
       const validated = this.stateMachine.transition(currentState, 'FAILED');
       const message = error instanceof Error ? error.message : String(error);
       // Atomique : transition + log d'erreur dans le même withTenantTx (C-11).
@@ -99,16 +99,22 @@ export class PipelineJobRunner {
     }
 
     // INV-08 : on_error_stop → rollback si le PDN le prescrit.
+    // Le rollback peut échouer si l'agent est injoignable ; on absorbe l'erreur
+    // car le déploiement est déjà FAILED — un re-throw provoquerait des retries infinis.
     const pdn = await this.repo.getPlan(deploymentId);
     if (pdn?.policies.on_error_stop && serverId) {
       const server = await this.repo.getServer(serverId, ctx);
-      await this.agentPort.rollback(
-        deploymentId,
-        pdn.source.fingerprint.commit_sha ?? '',
-        server,
-      );
+      try {
+        await this.agentPort.rollback(
+          deploymentId,
+          pdn.source.fingerprint.commit_sha ?? '',
+          server,
+        );
+      } catch {
+        // Rollback best-effort : l'échec est ignoré, le statut FAILED est déjà persisté.
+      }
     }
     // Ne pas re-throw : le job est considéré terminé (état FAILED enregistré).
-    // Si handleFailure lui-même échoue, l'exception se propage → BullMQ retente.
+    // Si handleFailure lui-même échoue (ex: DB injoignable), l'exception se propage → BullMQ retente.
   }
 }

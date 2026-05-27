@@ -83,6 +83,18 @@ export class OrgController {
         serverId: projects.serverId,
         serverName: servers.name,
         lastDeployedAt: projects.lastDeployedAt,
+        lastDeploymentId: sql<string | null>`(
+          SELECT id FROM deployments
+          WHERE project_id = ${projects.id}
+          ORDER BY created_at DESC
+          LIMIT 1
+        )`,
+        lastDeploymentStatus: sql<string | null>`(
+          SELECT status FROM deployments
+          WHERE project_id = ${projects.id}
+          ORDER BY created_at DESC
+          LIMIT 1
+        )`,
       })
       .from(projects)
       .leftJoin(servers, eq(projects.serverId, servers.id))
@@ -96,8 +108,8 @@ export class OrgController {
       branch: r.branch,
       serverId: r.serverId ?? '',
       serverName: r.serverName ?? '',
-      lastDeploymentId: null,
-      lastDeploymentStatus: null,
+      lastDeploymentId: r.lastDeploymentId ?? null,
+      lastDeploymentStatus: r.lastDeploymentStatus?.toUpperCase() ?? null,
       lastDeploymentAt: r.lastDeployedAt?.toISOString() ?? null,
     }));
   }

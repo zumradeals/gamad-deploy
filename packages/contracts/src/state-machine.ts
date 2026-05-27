@@ -11,12 +11,14 @@ export type DeploymentState =
 
 export type DeploymentTransition =
   | { from: 'PENDING'; to: 'RUNNING' }
+  | { from: 'PENDING'; to: 'FAILED' }
   | { from: 'RUNNING'; to: 'SUCCESS' }
   | { from: 'RUNNING'; to: 'FAILED' }
   | { from: 'FAILED'; to: 'ROLLED_BACK' };
 
 export const LEGAL_TRANSITIONS: ReadonlyArray<DeploymentTransition> = [
   { from: 'PENDING', to: 'RUNNING' },
+  { from: 'PENDING', to: 'FAILED' },
   { from: 'RUNNING', to: 'SUCCESS' },
   { from: 'RUNNING', to: 'FAILED' },
   { from: 'FAILED', to: 'ROLLED_BACK' },
