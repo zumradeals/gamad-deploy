@@ -7,7 +7,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Outils système requis pour les adaptateurs
-RUN apk add --no-cache git docker-cli nginx certbot certbot-nginx
+RUN apk add --no-cache git docker-cli docker-cli-compose nginx certbot certbot-nginx
 
 # Répertoires de travail de l'agent
 RUN mkdir -p /var/lib/gamad/deployments /var/lib/gamad/snapshots \
