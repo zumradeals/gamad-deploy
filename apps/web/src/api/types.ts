@@ -35,6 +35,7 @@ export interface ServerDetail extends Server {
 export interface RegenerateTokenResponse {
   token: string;
   suffix: string;
+  port: number;
 }
 
 export interface Project {

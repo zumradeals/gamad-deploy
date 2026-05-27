@@ -37,8 +37,10 @@ export function useCreateServer(orgId: string | null) {
 }
 
 export function useTestServerConnection(serverId: string) {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => apiRequest<{ latencyMs: number }>(`/servers/${serverId}/ping`, { method: 'POST' }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['servers', serverId] }),
   });
 }
 

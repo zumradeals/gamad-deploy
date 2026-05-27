@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Loader2, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Loader2, ArrowLeft, RefreshCw, Terminal } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { SecretRevealModal } from '@/components/app/SecretRevealModal';
 import { DangerConfirmDialog } from '@/components/app/DangerConfirmDialog';
 import { useServerDetail, useTestServerConnection, useRegenerateServerToken } from '@/api/servers';
 import type { RegenerateTokenResponse } from '@/api/types';
+import { buildDockerRunCommand, buildMaskedDockerRunCommand } from '@/lib/agent';
 import { cn } from '@/lib/utils';
 
 const STATUS_CLASSES: Record<'online' | 'offline' | 'unknown', string> = {
@@ -26,6 +27,7 @@ export function ServerDetailPage() {
   const [pingResult, setPingResult] = useState<{ latencyMs: number } | null>(null);
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const [revealData, setRevealData] = useState<RegenerateTokenResponse | null>(null);
+  const [showInstallCommand, setShowInstallCommand] = useState(false);
 
   const onPing = () => {
     setPingResult(null);
@@ -119,6 +121,30 @@ export function ServerDetailPage() {
         </div>
       </section>
 
+      {/* Installation command */}
+      <section className="rounded-lg border border-[--border] bg-[--surface] p-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-sm text-[--text]">{t('install.section.title', { ns: 'servers' })}</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs shrink-0"
+            onClick={() => setShowInstallCommand((v) => !v)}
+          >
+            <Terminal size={12} />
+            {showInstallCommand ? t('install.section.hide', { ns: 'servers' }) : t('install.section.show', { ns: 'servers' })}
+          </Button>
+        </div>
+        {showInstallCommand && (
+          <>
+            <pre className="overflow-x-auto rounded-lg bg-[#0d1117] px-4 py-3 font-mono text-xs text-emerald-400 border border-white/10 select-all whitespace-pre">
+              {buildMaskedDockerRunCommand(server.port, server.tokenSuffix)}
+            </pre>
+            <p className="text-xs text-[--text-muted]">{t('install.section.hint', { ns: 'servers' })}</p>
+          </>
+        )}
+      </section>
+
       {/* Agent token */}
       <section className="rounded-lg border border-[--border] bg-[--surface] p-6 space-y-3">
         <h2 className="font-semibold text-sm text-[--text]">{t('detail.token', { ns: 'servers' })}</h2>
@@ -176,13 +202,13 @@ export function ServerDetailPage() {
         isLoading={regenerateToken.isPending}
       />
 
-      {/* Single-reveal modal — new token lives only in revealData, never in store */}
+      {/* Reveal modal après régénération — affiche la commande d'installation complète */}
       <SecretRevealModal
         open={!!revealData}
         onClose={() => setRevealData(null)}
         title={t('detail.token.reveal.title', { ns: 'servers' })}
         description={t('detail.token.reveal.desc', { ns: 'servers' })}
-        secret={revealData?.token ?? ''}
+        secret={revealData ? buildDockerRunCommand(revealData.port, revealData.token) : ''}
         confirmLabel={t('detail.token.reveal.confirm', { ns: 'servers' })}
         closeLabel={t('apiKeys.reveal.close', { ns: 'settings' })}
         copyLabel={t('apiKeys.reveal.copy', { ns: 'settings' })}
