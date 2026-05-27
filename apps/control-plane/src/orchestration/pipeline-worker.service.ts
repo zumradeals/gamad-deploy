@@ -53,6 +53,10 @@ export class PipelineWorkerService implements OnModuleInit, OnModuleDestroy {
       },
       { connection: this.redisConn, concurrency: 1 },
     );
+    this.worker.on('error', (err) => console.error('[PipelineWorker] Redis error:', err));
+    this.worker.on('failed', (job, err) =>
+      console.error(`[PipelineWorker] job ${job?.name ?? '?'} failed:`, err.message),
+    );
   }
 
   async onModuleDestroy(): Promise<void> {

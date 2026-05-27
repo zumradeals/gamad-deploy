@@ -5,11 +5,11 @@
 //   3. Chemin d'échec (INV-08) : RUNNING → FAILED + rollback si on_error_stop.
 // Le binôme transition+log (C-11) reste atomique via transitionWithLog().
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import type { DeploymentState, PlanDeDeploiementNormalise, TenantContext } from '@gamad/contracts';
 import { StateMachineService } from '../../domain/index';
-import type { AgentPort } from '../ports/agent.port';
-import type { PipelineRepositoryPort } from '../ports/pipeline-repository.port';
+import { AgentPort } from '../ports/agent.port';
+import { PipelineRepositoryPort } from '../ports/pipeline-repository.port';
 import type { PipelineJobData } from '../pipeline/pipeline.types';
 
 export interface RunContext {
@@ -26,8 +26,8 @@ export class PipelineJobRunner {
   private readonly stateMachine = new StateMachineService();
 
   constructor(
-    readonly repo: PipelineRepositoryPort,
-    readonly agentPort: AgentPort,
+    @Inject(PipelineRepositoryPort) readonly repo: PipelineRepositoryPort,
+    @Inject(AgentPort) readonly agentPort: AgentPort,
   ) {}
 
   async run(
