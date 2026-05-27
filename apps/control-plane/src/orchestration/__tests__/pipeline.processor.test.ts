@@ -39,8 +39,11 @@ function mockJob(data: PipelineJobData): Job<PipelineJobData> {
   return { data } as unknown as Job<PipelineJobData>;
 }
 
+const SERVER_ID = 'srv-00000000-0000-0000-0000-000000000001';
+const TENANT = { org_id: ORG_ID, user_id: USER_ID };
+
 function baseJobData(): PipelineJobData {
-  return { deploymentId: DEPLOYMENT_ID, orgId: ORG_ID, userId: USER_ID };
+  return { deploymentId: DEPLOYMENT_ID, orgId: ORG_ID, userId: USER_ID, serverId: SERVER_ID };
 }
 
 // ── Setup helpers ─────────────────────────────────────────────────────────────
@@ -197,7 +200,7 @@ describe('AwaitHealthProcessor', () => {
 
     expect(repo.transitions).toHaveLength(1);
     expect(repo.transitions[0]).toMatchObject({ from: 'RUNNING', to: 'SUCCESS' });
-    expect(await repo.getDeploymentState(DEPLOYMENT_ID)).toBe('SUCCESS');
+    expect(await repo.getDeploymentState(DEPLOYMENT_ID, TENANT)).toBe('SUCCESS');
   });
 
   test('appelle checkHealth depuis AgentPort (pas de logique de check dans le processor)', async () => {

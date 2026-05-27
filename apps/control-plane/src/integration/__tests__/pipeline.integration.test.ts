@@ -21,6 +21,7 @@ import type { RepoAnalysis, TenantContext } from '@gamad/contracts';
 import {
   organizations,
   projects,
+  servers,
   deployments,
   deploymentStateTransitions,
   deploymentLogs,
@@ -64,6 +65,7 @@ let db: NodePgDatabase;
 let notifier: DeploymentNotifierService;
 let orgId: string;
 let projectId: string;
+let serverId: string;
 
 beforeAll(async () => {
   pool = new pg.Pool({ connectionString: DB_URL });
@@ -78,9 +80,15 @@ beforeAll(async () => {
     .returning({ id: organizations.id });
   orgId = org!.id;
 
+  const [srv] = await db
+    .insert(servers)
+    .values({ orgId, name: 'Test Server P-05', host: 'stub-host', agentToken: `stub-agt-${Date.now()}` })
+    .returning({ id: servers.id });
+  serverId = srv!.id;
+
   const [proj] = await db
     .insert(projects)
-    .values({ orgId, name: 'App Test', repoUrl: 'https://github.com/test/app', repoBranch: 'main' })
+    .values({ orgId, serverId, name: 'App Test', repoUrl: 'https://github.com/test/app', repoBranch: 'main' })
     .returning({ id: projects.id });
   projectId = proj!.id;
 }, 30_000);
@@ -170,6 +178,7 @@ describe('E2E-01 SUCCESS — 5 couches, Redis + Postgres réels, AgentPort stubb
       deploymentId,
       orgId,
       userId: tenantCtx().user_id,
+      serverId,
       repoAnalysis: REPO_ANALYSIS,
     };
     await queue.add(JobName.RESOLVE_SOURCE, jobData, DEFAULT_JOB_OPTIONS);
@@ -214,6 +223,7 @@ describe('E2E-02 FAILURE — dispatch fail + on_error_stop → FAILED + rollback
       deploymentId,
       orgId,
       userId: tenantCtx().user_id,
+      serverId,
       repoAnalysis: REPO_ANALYSIS,
     };
     await queue.add(JobName.RESOLVE_SOURCE, jobData, DEFAULT_JOB_OPTIONS);
@@ -258,6 +268,7 @@ describe('E2E-03 IDEMPOTENCE — BullMQ rejoue le job → 1 seule transition PEN
       deploymentId,
       orgId,
       userId: tenantCtx().user_id,
+      serverId,
       repoAnalysis: REPO_ANALYSIS,
     };
     // Double enqueue simulant un replay BullMQ
@@ -332,7 +343,7 @@ describe('E2E-04 RACE-2 — deux transitions RUNNING→FAILED simultanées → 1
       expect(failedTransitions).toHaveLength(1);
 
       // L'état final est bien FAILED (pas de double-write qui corrompt l'audit).
-      const state = await repo.getDeploymentState(deploymentId);
+      const state = await repo.getDeploymentState(deploymentId, ctx);
       expect(state).toBe('FAILED');
     },
     15_000,

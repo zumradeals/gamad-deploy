@@ -36,7 +36,9 @@ function mockJob(data: PipelineJobData): Job<PipelineJobData> {
   return { data } as unknown as Job<PipelineJobData>;
 }
 
-const JOB_DATA: PipelineJobData = { deploymentId: DEP, orgId: ORG, userId: USR };
+const SRV = 'srv-00000000-0000-0000-0000-000000000001';
+const TENANT = { org_id: ORG, user_id: USR };
+const JOB_DATA: PipelineJobData = { deploymentId: DEP, orgId: ORG, userId: USR, serverId: SRV };
 
 // ── Transition RUNNING → FAILED via StateMachine (Domain) ────────────────────
 
@@ -60,7 +62,7 @@ describe('on_error_stop : transition via Domain (pas de write direct)', () => {
     expect(repo.logs.some((l) => l.step === JobName.PROVISION_DB && l.message.includes('provision simulée'))).toBe(true);
 
     // État final en base = FAILED
-    expect(await repo.getDeploymentState(DEP)).toBe('FAILED');
+    expect(await repo.getDeploymentState(DEP, TENANT)).toBe('FAILED');
   });
 
   test('échec dispatch-agent → rollback stub appelé (on_error_stop=true)', async () => {
@@ -124,7 +126,7 @@ describe('on_error_stop : chemin d\'échec aussi rigoureux que le succès', () =
     const proc = new AwaitHealthProcessor(runner, agent, 0, 2);
     await proc.process(mockJob(JOB_DATA));
 
-    expect(await repo.getDeploymentState(DEP)).toBe('FAILED');
+    expect(await repo.getDeploymentState(DEP, TENANT)).toBe('FAILED');
     // Rollback déclenché (on_error_stop=true dans le PDN inféré)
     expect(agent.rollbacks).toHaveLength(1);
     // Aucune transition SUCCESS : le succès fantôme est impossible
@@ -157,7 +159,7 @@ describe('on_error_stop : chemin d\'échec aussi rigoureux que le succès', () =
     let caughtError: unknown = null;
     await runner.run(
       'test-step',
-      { deploymentId: DEP, orgId: ORG, userId: USR },
+      { deploymentId: DEP, orgId: ORG, userId: USR, serverId: SRV },
       async (ctx) => {
         try {
           await ctx.transition('SUCCESS', 'FAILED', 'tentative illégale');

@@ -37,7 +37,8 @@ function mockJob(data: PipelineJobData): Job<PipelineJobData> {
   return { data } as unknown as Job<PipelineJobData>;
 }
 
-const JOB_DATA: PipelineJobData = { deploymentId: DEP, orgId: ORG, userId: USR, repoAnalysis: REPO_ANALYSIS };
+const SRV = 'srv-00000000-0000-0000-0000-000000000001';
+const JOB_DATA: PipelineJobData = { deploymentId: DEP, orgId: ORG, userId: USR, serverId: SRV, repoAnalysis: REPO_ANALYSIS };
 
 function makeQueue() {
   return { add: vi.fn().mockResolvedValue({}) } as unknown as Queue;

@@ -9,6 +9,8 @@ export interface PipelineJobData {
   orgId: string;
   /** UUID v4 de l'utilisateur ayant déclenché le déploiement (INV-06). */
   userId: string;
+  /** UUID v4 du serveur VPS cible — requis pour dispatch-agent et await-health. */
+  serverId: string;
   /** Présent uniquement pour resolve-source ; absent pour les étapes suivantes. */
   repoAnalysis?: RepoAnalysis;
 }

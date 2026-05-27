@@ -26,6 +26,7 @@ export class PipelineRepositoryStub extends PipelineRepositoryPort {
   private readonly states = new Map<string, DeploymentState>();
   private readonly plans = new Map<string, PlanDeDeploiementNormalise>();
   private readonly doneSteps = new Map<string, Set<string>>();
+  private readonly serverMap = new Map<string, { host: string; agentPort: number; agentToken: string }>();
 
   readonly transitions: RecordedTransition[] = [];
   readonly logs: RecordedLog[] = [];
@@ -42,12 +43,23 @@ export class PipelineRepositoryStub extends PipelineRepositoryPort {
     return this;
   }
 
+  seedServer(serverId: string, server: { host: string; agentPort: number; agentToken: string }): this {
+    this.serverMap.set(serverId, server);
+    return this;
+  }
+
   // ── PipelineRepositoryPort ─────────────────────────────────────────────────
 
-  override async getDeploymentState(deploymentId: string): Promise<DeploymentState> {
+  override async getDeploymentState(deploymentId: string, _ctx: TenantContext): Promise<DeploymentState> {
     const state = this.states.get(deploymentId);
     if (!state) throw new Error(`PipelineRepositoryStub : deploymentId inconnu : ${deploymentId}`);
     return state;
+  }
+
+  override async getServer(serverId: string, _ctx: TenantContext): Promise<{ host: string; agentPort: number; agentToken: string }> {
+    const server = this.serverMap.get(serverId);
+    if (!server) return { host: 'stub-host', agentPort: 7500, agentToken: 'stub-token' };
+    return server;
   }
 
   override async getPlan(deploymentId: string): Promise<PlanDeDeploiementNormalise | null> {

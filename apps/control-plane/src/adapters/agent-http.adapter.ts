@@ -1,34 +1,33 @@
 // Adaptateur HTTP de AgentPort — appelle l'agent VPS via C-06/C-07 (INV-09).
+// Les credentials (host/agentPort/agentToken) sont fournis par appel (lus depuis servers en DB)
+// et jamais depuis des variables d'environnement globales — garantit le multi-serveur (INV-09).
 // agent_token transmis via Authorization header — jamais loggé (CLAUDE.md §8).
 
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { HealthCheck, PlanDeDeploiementNormalise } from '@gamad/contracts';
-import { AgentPort } from '../orchestration/ports/agent.port';
-
-export const AGENT_BASE_URL_TOKEN = 'AGENT_BASE_URL_TOKEN';
-export const AGENT_TOKEN_TOKEN = 'AGENT_TOKEN_TOKEN';
+import { AgentPort, type ServerEndpoint } from '../orchestration/ports/agent.port';
 
 @Injectable()
 export class AgentHttpAdapter extends AgentPort {
-  constructor(
-    @Inject(AGENT_BASE_URL_TOKEN) private readonly baseUrl: string,
-    @Inject(AGENT_TOKEN_TOKEN) private readonly agentToken: string,
-  ) { super(); }
-
-  private get headers(): Record<string, string> {
+  private makeHeaders(agentToken: string): Record<string, string> {
     return {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.agentToken}`,
+      Authorization: `Bearer ${agentToken}`,
     };
+  }
+
+  private baseUrl(server: ServerEndpoint): string {
+    return `http://${server.host}:${server.agentPort}`;
   }
 
   override async dispatch(
     deploymentId: string,
     pdn: PlanDeDeploiementNormalise,
+    server: ServerEndpoint,
   ): Promise<{ agentJobId: string }> {
-    const res = await fetch(`${this.baseUrl}/deploy`, {
+    const res = await fetch(`${this.baseUrl(server)}/deploy`, {
       method: 'POST',
-      headers: this.headers,
+      headers: this.makeHeaders(server.agentToken),
       body: JSON.stringify({ deployment_id: deploymentId, resolved_plan: pdn }),
     });
     if (!res.ok) {
@@ -39,10 +38,14 @@ export class AgentHttpAdapter extends AgentPort {
     return { agentJobId: body.job_id ?? deploymentId };
   }
 
-  override async rollback(deploymentId: string, _snapshotRef: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/rollback`, {
+  override async rollback(
+    deploymentId: string,
+    _snapshotRef: string,
+    server: ServerEndpoint,
+  ): Promise<void> {
+    const res = await fetch(`${this.baseUrl(server)}/rollback`, {
       method: 'POST',
-      headers: this.headers,
+      headers: this.makeHeaders(server.agentToken),
       body: JSON.stringify({ deployment_id: deploymentId }),
     });
     if (!res.ok) {
@@ -54,10 +57,11 @@ export class AgentHttpAdapter extends AgentPort {
   override async checkHealth(
     deploymentId: string,
     checks: HealthCheck[],
+    server: ServerEndpoint,
   ): Promise<{ passed: boolean; details: string[] }> {
-    const res = await fetch(`${this.baseUrl}/check-health`, {
+    const res = await fetch(`${this.baseUrl(server)}/check-health`, {
       method: 'POST',
-      headers: this.headers,
+      headers: this.makeHeaders(server.agentToken),
       body: JSON.stringify({ deployment_id: deploymentId, checks }),
     });
     if (!res.ok) {
