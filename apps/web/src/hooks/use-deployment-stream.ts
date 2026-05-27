@@ -162,21 +162,46 @@ export function useDeploymentStream(deploymentId: string): UseDeploymentStreamRe
     ws.onerror = () => { ws.close(); };
   }, [deploymentId]);
 
-  // Fetch historical logs from REST on mount and populate terminal
+  // Poll logs from REST every 3 s while the deployment is not terminal.
+  // Tracks how many lines have already been injected (logCountRef) so only
+  // NEW lines are appended on each round — no duplicates, no full rerender.
+  const logCountRef = useRef(0);
   useEffect(() => {
-    const token = useAuthStore.getState().token;
-    void fetch(`/api/deployments/${deploymentId}/logs`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    })
-      .then((r) => (r.ok ? (r.json() as Promise<LogLine[]>) : Promise.resolve([])))
-      .then((logs) => {
-        if (isUnmountedRef.current || logs.length === 0) return;
-        pendingRef.current = [...logs, ...pendingRef.current];
+    logCountRef.current = 0; // reset when deploymentId changes
+
+    const fetchLogs = () => {
+      if (isUnmountedRef.current) return;
+      const token = useAuthStore.getState().token;
+      void fetch(`/api/deployments/${deploymentId}/logs`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       })
-      .catch(() => {});
+        .then((r) => (r.ok ? (r.json() as Promise<LogLine[]>) : Promise.resolve([])))
+        .then((logs) => {
+          if (isUnmountedRef.current) return;
+          const newLogs = logs.slice(logCountRef.current);
+          if (newLogs.length > 0) {
+            logCountRef.current = logs.length;
+            pendingRef.current = [...pendingRef.current, ...newLogs];
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLogs(); // initial fetch
+
+    const pollId = window.setInterval(() => {
+      // Stop polling once a terminal state is received via WebSocket
+      if (statusRef.current && TERMINAL_STATUSES.has(statusRef.current)) {
+        window.clearInterval(pollId);
+        return;
+      }
+      fetchLogs();
+    }, 3_000);
+
+    return () => window.clearInterval(pollId);
   }, [deploymentId]);
 
   useEffect(() => {
