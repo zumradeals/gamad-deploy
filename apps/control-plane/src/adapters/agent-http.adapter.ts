@@ -6,7 +6,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import type { HealthCheck, PlanDeDeploiementNormalise } from '@gamad/contracts';
 import { AgentPort, type ServerEndpoint } from '../orchestration/ports/agent.port';
-import { CONTROL_PLANE_URL } from './adapters.module';
+import { CONTROL_PLANE_URL } from './adapters.constants';
 
 @Injectable()
 export class AgentHttpAdapter extends AgentPort {
