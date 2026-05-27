@@ -3,12 +3,19 @@
 // et jamais depuis des variables d'environnement globales — garantit le multi-serveur (INV-09).
 // agent_token transmis via Authorization header — jamais loggé (CLAUDE.md §8).
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import type { HealthCheck, PlanDeDeploiementNormalise } from '@gamad/contracts';
 import { AgentPort, type ServerEndpoint } from '../orchestration/ports/agent.port';
+import { CONTROL_PLANE_URL } from './adapters.module';
 
 @Injectable()
 export class AgentHttpAdapter extends AgentPort {
+  constructor(
+    @Inject(CONTROL_PLANE_URL) private readonly controlPlaneUrl: string,
+  ) {
+    super();
+  }
+
   private makeHeaders(agentToken: string): Record<string, string> {
     return {
       'Content-Type': 'application/json',
@@ -25,10 +32,11 @@ export class AgentHttpAdapter extends AgentPort {
     pdn: PlanDeDeploiementNormalise,
     server: ServerEndpoint,
   ): Promise<{ agentJobId: string }> {
+    const callbackUrl = `${this.controlPlaneUrl}/agent/callback`;
     const res = await fetch(`${this.baseUrl(server)}/deploy`, {
       method: 'POST',
       headers: this.makeHeaders(server.agentToken),
-      body: JSON.stringify({ deployment_id: deploymentId, resolved_plan: pdn }),
+      body: JSON.stringify({ deployment_id: deploymentId, resolved_plan: pdn, callback_url: callbackUrl }),
     });
     if (!res.ok) {
       const text = await res.text();

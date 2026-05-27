@@ -16,6 +16,8 @@ import {
   AWAIT_HEALTH_MAX_ATTEMPTS,
 } from '../orchestration/pipeline/pipeline.constants';
 
+export const CONTROL_PLANE_URL = 'CONTROL_PLANE_URL';
+
 @Global()
 @Module({
   providers: [
@@ -26,6 +28,14 @@ import {
         return drizzle(pool);
       },
     },
+    {
+      provide: CONTROL_PLANE_URL,
+      useFactory: () => {
+        if (process.env['CONTROL_PLANE_URL']) return process.env['CONTROL_PLANE_URL'];
+        if (process.env['DOMAIN']) return `https://${process.env['DOMAIN']}/api`;
+        return 'http://control-plane:3000';
+      },
+    },
     { provide: PipelineRepositoryPort, useClass: PipelineRepositoryAdapter },
     { provide: AgentPort, useClass: AgentHttpAdapter },
     { provide: DbProviderPort, useClass: DbProviderStub },
@@ -34,6 +44,7 @@ import {
   ],
   exports: [
     DB_TOKEN,
+    CONTROL_PLANE_URL,
     PipelineRepositoryPort,
     AgentPort,
     DbProviderPort,

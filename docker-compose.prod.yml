@@ -61,11 +61,12 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      NODE_ENV:     production
-      PORT:         3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-gamad}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gamad}
-      REDIS_HOST:   redis
-      REDIS_PORT:   6379
+      NODE_ENV:           production
+      PORT:               3000
+      DATABASE_URL:       postgresql://${POSTGRES_USER:-gamad}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gamad}
+      REDIS_HOST:         redis
+      REDIS_PORT:         6379
+      CONTROL_PLANE_URL:  ${CONTROL_PLANE_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
