@@ -9,10 +9,15 @@ import { toast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SecretRevealModal } from '@/components/app/SecretRevealModal';
 import { HetznerComingSoonBadge } from '@/components/app/ComingSoonBadge';
 import { useAuthStore } from '@/store/auth.store';
 import { useServers, useCreateServer } from '@/api/servers';
+import type { ServerCreatedResult } from '@/api/types';
 import { cn } from '@/lib/utils';
+
+const INSTALL_SCRIPT_URL =
+  'https://raw.githubusercontent.com/zumradeals/gamad-deploy/main/scripts/install-agent.sh';
 
 const STATUS_CLASSES: Record<'online' | 'offline' | 'unknown', string> = {
   online: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -24,9 +29,12 @@ const serverSchema = z.object({
   name: z.string().min(1, 'error.required'),
   host: z.string().min(1, 'error.required'),
   port: z.coerce.number().int().min(1).max(65535),
-  agentToken: z.string().min(1, 'error.required'),
 });
 type ServerForm = z.infer<typeof serverSchema>;
+
+function buildInstallCommand(server: ServerCreatedResult): string {
+  return `curl -fsSL ${INSTALL_SCRIPT_URL} \\\n  | AGENT_TOKEN=${server.token} PORT=${server.port} bash`;
+}
 
 export function ServersPage() {
   const { t } = useTranslation(['servers', 'common']);
@@ -34,6 +42,7 @@ export function ServersPage() {
   const { data: servers, isLoading } = useServers(currentOrgId);
   const createServer = useCreateServer(currentOrgId);
   const [showForm, setShowForm] = useState(false);
+  const [installData, setInstallData] = useState<ServerCreatedResult | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ServerForm>({
     resolver: zodResolver(serverSchema),
@@ -42,10 +51,10 @@ export function ServersPage() {
 
   const onSubmit = (data: ServerForm) => {
     createServer.mutate(data, {
-      onSuccess: () => {
+      onSuccess: (result) => {
         setShowForm(false);
         reset();
-        toast.success(t('registered', { ns: 'servers' }));
+        setInstallData(result);
       },
       onError: () => toast.error(t('error.register', { ns: 'servers' })),
     });
@@ -86,19 +95,8 @@ export function ServersPage() {
               <Input id="serverPort" type="number" placeholder={t('form.port.placeholder', { ns: 'servers' })} {...register('port')} />
               {errors.port && <p className="text-xs text-red-500">{t(errors.port.message ?? 'error.required', { ns: 'common' })}</p>}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="agentToken">{t('form.token', { ns: 'servers' })}</Label>
-              <Input
-                id="agentToken"
-                type="password"
-                autoComplete="off"
-                placeholder={t('form.token.placeholder', { ns: 'servers' })}
-                {...register('agentToken')}
-              />
-              {errors.agentToken && <p className="text-xs text-red-500">{t(errors.agentToken.message ?? 'error.required', { ns: 'common' })}</p>}
-              <p className="text-xs text-[--text-muted]">{t('form.token.hint', { ns: 'servers' })}</p>
-            </div>
           </div>
+          <p className="text-xs text-[--text-muted]">{t('form.token.auto', { ns: 'servers' })}</p>
           <div className="flex gap-3 justify-end">
             <Button type="button" variant="outline" onClick={() => { setShowForm(false); reset(); }}>
               {t('btn.cancel', { ns: 'common' })}
@@ -161,6 +159,21 @@ export function ServersPage() {
 
       {/* Hetzner Phase 2 coming soon */}
       <HetznerComingSoonBadge />
+
+      {/* Installation modal — token visible une seule fois */}
+      {installData && (
+        <SecretRevealModal
+          open={!!installData}
+          onClose={() => setInstallData(null)}
+          title={t('install.title', { ns: 'servers' })}
+          description={t('install.desc', { ns: 'servers' })}
+          secret={buildInstallCommand(installData)}
+          confirmLabel={t('install.confirm', { ns: 'servers' })}
+          closeLabel={t('install.close', { ns: 'servers' })}
+          copyLabel={t('install.copy', { ns: 'servers' })}
+          copiedLabel={t('install.copied', { ns: 'servers' })}
+        />
+      )}
     </div>
   );
 }

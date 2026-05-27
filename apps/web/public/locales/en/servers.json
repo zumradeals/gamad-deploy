@@ -18,9 +18,7 @@
   "form.host.placeholder": "192.168.1.1",
   "form.port": "Agent port",
   "form.port.placeholder": "7500",
-  "form.token": "Agent token",
-  "form.token.placeholder": "gam_agt_xxxxxxxxxxxxx",
-  "form.token.hint": "Generated when installing the GAMAD agent on the server.",
+  "form.token.auto": "A unique agent token will be generated automatically on registration.",
   "form.submit": "Register",
   "form.submitting": "Registering...",
   "detail.title": "Server",
@@ -47,6 +45,12 @@
   "hetzner.badge": "Coming soon",
   "hetzner.title": "Automatic Hetzner provisioning",
   "hetzner.desc": "In Phase 2, GAMAD Deploy will automatically create and configure your Hetzner VPS — no command line required. You choose the region and size, we do the rest.",
+  "install.title": "Install the agent on your server",
+  "install.desc": "Run this command on your VPS as root. The token will not be visible again after closing this window.",
+  "install.confirm": "I have copied and run the install command",
+  "install.close": "Close",
+  "install.copy": "Copy command",
+  "install.copied": "Command copied!",
   "registered": "Server registered.",
   "error.register": "Error registering server."
 }
