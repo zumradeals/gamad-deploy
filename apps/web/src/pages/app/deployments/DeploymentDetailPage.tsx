@@ -31,7 +31,7 @@ export function DeploymentDetailPage() {
   const { t } = useTranslation('deployment');
   const [rollbackOpen, setRollbackOpen] = useState(false);
 
-  const { data: deployment, isLoading } = useDeployment(id ?? '');
+  const { data: deployment, isLoading, isError } = useDeployment(id ?? '');
   const rollback = useRollback(id ?? '');
 
   const handleRollback = () => {
@@ -45,6 +45,15 @@ export function DeploymentDetailPage() {
       },
     });
   };
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-[--text-muted]">
+        <AlertCircle size={32} className="text-red-400" />
+        <p className="text-sm">{t('detail.not_found')}</p>
+      </div>
+    );
+  }
 
   if (isLoading || !deployment) {
     return (

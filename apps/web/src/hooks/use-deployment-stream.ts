@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { DeploymentStatus, LogLine } from '@/api/types';
+import { useAuthStore } from '@/store/auth.store';
 
 const MAX_LINES = 5000;
 const FLUSH_INTERVAL_MS = 100;
@@ -7,10 +8,24 @@ const FLUSH_INTERVAL_MS = 100;
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const TERMINAL_STATUSES: ReadonlySet<DeploymentStatus> = new Set(['SUCCESS', 'FAILED', 'ROLLED_BACK']);
 
+const STATE_LABEL: Partial<Record<string, string>> = {
+  pending:     'En attente…',
+  running:     'Déploiement en cours…',
+  success:     'Déploiement réussi ✓',
+  failed:      'Déploiement échoué ✗',
+  rolled_back: 'Rollback effectué',
+};
+
+const STATE_LEVEL: Partial<Record<string, LogLine['level']>> = {
+  success:     'success',
+  failed:      'error',
+  rolled_back: 'warn',
+};
+
 const LEVEL_CLASS: Record<LogLine['level'], string> = {
-  info: 'text-gray-200',
-  warn: 'text-amber-400',
-  error: 'text-red-400',
+  info:    'text-gray-200',
+  warn:    'text-amber-400',
+  error:   'text-red-400',
   success: 'text-emerald-400',
 };
 
@@ -94,8 +109,9 @@ export function useDeploymentStream(deploymentId: string): UseDeploymentStreamRe
   const connect = useCallback(() => {
     if (isUnmountedRef.current) return;
 
+    // Connect to the shared events gateway — nginx proxies /api/events → control-plane /events
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/api/deployments/${deploymentId}/stream`;
+    const wsUrl = `${protocol}://${window.location.host}/api/events`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -103,12 +119,24 @@ export function useDeploymentStream(deploymentId: string): UseDeploymentStreamRe
       if (isUnmountedRef.current) { ws.close(); return; }
       reconnectAttemptRef.current = 0;
       setIsConnected(true);
+      // Subscribe to this deployment's transitions
+      ws.send(JSON.stringify({ subscribe: deploymentId }));
     };
 
     ws.onmessage = (event: MessageEvent<string>) => {
       try {
-        const msg = JSON.parse(event.data) as { type: string; payload: unknown };
-        if (msg.type === 'log') {
+        const msg = JSON.parse(event.data) as { type: string; [k: string]: unknown };
+
+        if (msg.type === 'transition') {
+          const toState = (msg.toState as string | undefined) ?? '';
+          const incoming = toState.toUpperCase() as DeploymentStatus;
+          statusRef.current = incoming;
+          setStatus(incoming);
+          // Synthetic log line for each state change
+          const level = STATE_LEVEL[toState] ?? 'info';
+          const message = STATE_LABEL[toState] ?? `→ ${incoming}`;
+          pendingRef.current.push({ level, message, timestamp: new Date().toISOString() });
+        } else if (msg.type === 'log') {
           pendingRef.current.push(msg.payload as LogLine);
         } else if (msg.type === 'status') {
           const incoming = (msg.payload as { status: DeploymentStatus }).status;
@@ -132,6 +160,23 @@ export function useDeploymentStream(deploymentId: string): UseDeploymentStreamRe
     };
 
     ws.onerror = () => { ws.close(); };
+  }, [deploymentId]);
+
+  // Fetch historical logs from REST on mount and populate terminal
+  useEffect(() => {
+    const token = useAuthStore.getState().token;
+    void fetch(`/api/deployments/${deploymentId}/logs`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+      .then((r) => (r.ok ? (r.json() as Promise<LogLine[]>) : Promise.resolve([])))
+      .then((logs) => {
+        if (isUnmountedRef.current || logs.length === 0) return;
+        pendingRef.current = [...logs, ...pendingRef.current];
+      })
+      .catch(() => {});
   }, [deploymentId]);
 
   useEffect(() => {
