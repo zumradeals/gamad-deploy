@@ -154,6 +154,8 @@ export interface LogLine {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+export type PlatformRole = 'superadmin' | 'support' | 'user';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -162,6 +164,8 @@ export interface UserProfile {
   avatarUrl: string | null;
   language: 'fr' | 'en';
   theme: 'light' | 'dark' | 'system';
+  /** Rôle plateforme — lu en base côté serveur, jamais depuis le JWT (INV-06). */
+  platformRole: PlatformRole;
 }
 
 export interface OrgSettings {

@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X } from 'lucide-react';
+import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -26,6 +26,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { t } = useTranslation('dashboard');
   const logout = useAuthStore((s) => s.logout);
+  const platformRole = useAuthStore((s) => s.platformRole);
 
   return (
     <aside
@@ -74,6 +75,27 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </NavLink>
         ))}
       </nav>
+
+      {/* Admin link — visible uniquement si superadmin */}
+      {platformRole === 'superadmin' && (
+        <div className="px-3 pb-2">
+          <NavLink
+            to="/admin/overview"
+            onClick={onClose}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                isActive
+                  ? 'bg-emerald-500/15 text-emerald-400 font-medium'
+                  : 'text-[--text-muted] hover:bg-[rgba(16,185,129,0.06)] hover:text-[--text]',
+              )
+            }
+          >
+            <ShieldCheck size={17} />
+            Administration
+          </NavLink>
+        </div>
+      )}
 
       {/* Bottom section */}
       <div className="border-t border-[--border] p-3 space-y-2">

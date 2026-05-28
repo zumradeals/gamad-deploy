@@ -24,6 +24,14 @@ import { DangerPage } from '@/pages/app/settings/DangerPage';
 import { GitHubPage } from '@/pages/app/settings/GitHubPage';
 import { PrivateRoute } from '@/routes/PrivateRoute';
 import { PublicRoute } from '@/routes/PublicRoute';
+// Admin routes (Phase 1)
+import { AdminLayout } from '@/pages/admin/AdminLayout';
+import { AdminOverviewPage } from '@/pages/admin/AdminOverviewPage';
+import { AdminSettingsLayout, AdminSettingsIndexRedirect } from '@/pages/admin/AdminSettingsLayout';
+import { AdminBrandingPage } from '@/pages/admin/AdminBrandingPage';
+import { AdminFeaturesPage } from '@/pages/admin/AdminFeaturesPage';
+import { AdminLimitsPage } from '@/pages/admin/AdminLimitsPage';
+import { AdminMaintenancePage } from '@/pages/admin/AdminMaintenancePage';
 
 export function App() {
   return (
@@ -63,6 +71,20 @@ export function App() {
                 <Route path="api-keys" element={<ApiKeysPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="danger" element={<DangerPage />} />
+              </Route>
+            </Route>
+
+            {/* Superadmin routes — AdminLayout vérifie platformRole côté client (UX),
+                AdminGuard vérifie en base côté serveur (sécurité réelle, INV-06) */}
+            <Route element={<AdminLayout />}>
+              <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
+              <Route path="/admin/overview" element={<AdminOverviewPage />} />
+              <Route path="/admin/settings" element={<AdminSettingsLayout />}>
+                <Route index element={<AdminSettingsIndexRedirect />} />
+                <Route path="branding" element={<AdminBrandingPage />} />
+                <Route path="features" element={<AdminFeaturesPage />} />
+                <Route path="limits" element={<AdminLimitsPage />} />
+                <Route path="maintenance" element={<AdminMaintenancePage />} />
               </Route>
             </Route>
           </Route>

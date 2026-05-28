@@ -1,11 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toast';
 import { Sidebar } from '@/components/app/Sidebar';
 import { AppHeader } from '@/components/app/AppHeader';
+import { useProfileQuery } from '@/api/settings';
+import { useAuthStore } from '@/store/auth.store';
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const profileQuery = useProfileQuery();
+  const setPlatformRole = useAuthStore((s) => s.setPlatformRole);
+
+  // Synchronise le platformRole (lu en base côté serveur) dans le store local (INV-06)
+  useEffect(() => {
+    if (profileQuery.data?.platformRole) {
+      setPlatformRole(profileQuery.data.platformRole);
+    }
+  }, [profileQuery.data, setPlatformRole]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[--bg]">
