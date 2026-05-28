@@ -385,10 +385,13 @@ function Step3() {
     );
   };
 
+  const [forceRenormalize, setForceRenormalize] = useState(false);
+
   if (!analysisResult) { setStep(2); return null; }
 
   const alreadyNormalized = analysisResult.hasGamadJson;
-  const canProceed = alreadyNormalized || phase === 'verified';
+  const canProceed = (alreadyNormalized && !forceRenormalize) || phase === 'verified';
+  const showNormalizeGate = forceRenormalize || !alreadyNormalized;
 
   const handlePreview = () => {
     setPhase('previewing');
@@ -520,8 +523,8 @@ function Step3() {
         </div>
       )}
 
-      {/* Gate de normalisation — obligatoire si pas de gamad.json (et repo possédé) */}
-      {!alreadyNormalized && !needsFork && phase !== 'verified' && (
+      {/* Gate de normalisation — obligatoire si pas de gamad.json, ou re-normalisation forcée */}
+      {showNormalizeGate && !needsFork && phase !== 'verified' && (
         <div className="rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 p-4 space-y-3">
           <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
             ⚠ {t('normalize.required')}
@@ -595,7 +598,26 @@ function Step3() {
         </div>
       )}
 
-      {/* Bannière "normalisé" */}
+      {/* Bannière "déjà normalisé" avec option re-normaliser */}
+      {alreadyNormalized && !forceRenormalize && phase !== 'verified' && (
+        <div className="rounded-lg border border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Check size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              {t('normalize.already')}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setForceRenormalize(true); setPhase('idle'); }}
+            className="text-xs text-[--text-muted] underline hover:text-[--text] shrink-0"
+          >
+            {t('normalize.rerun')}
+          </button>
+        </div>
+      )}
+
+      {/* Bannière "normalisé" après re-normalisation réussie */}
       {phase === 'verified' && (
         <div className="rounded-lg border border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 p-4 flex items-center gap-2">
           <Check size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
