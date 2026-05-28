@@ -4,6 +4,7 @@
 // L'agent est aveugle à la source (INV-01) : il ne lit que le PDN résolu.
 // Idempotence par deploymentId (ADR-0007) : chaque opération destructive vérifie son marker.
 
+import { writeFile } from 'node:fs/promises';
 import type { AgentDispatchRequest, PlanDeDeploiementNormalise } from '@gamad/contracts';
 import type { GitExecutorPort } from '../ports/git-executor.port';
 import type { DockerExecutorPort } from '../ports/docker-executor.port';
@@ -51,7 +52,8 @@ export class DeploymentService {
       await this.logger.log(callback_url, deployment_id, 'step_started', 'docker-up');
       if (!(await this.docker.isRunning(deployment_id))) {
         const envVars = this.buildEnvMap(pdn);
-        const composePath = `${BASE_PATH}/${deployment_id}/${pdn.artifact.compose_file ?? 'docker-compose.yml'}`;
+        const deployPath = `${BASE_PATH}/${deployment_id}`;
+        const composePath = await this.resolveComposePath(pdn, deployPath);
         await this.docker.composeUp(deployment_id, composePath, envVars);
       }
 
@@ -123,5 +125,56 @@ export class DeploymentService {
       upstreamUrl: `http://localhost:${firstPort}`,
       https: pdn.proxy.https,
     };
+  }
+
+  // Pour les artifacts node/static (sans docker-compose.yml dans le repo), génère un
+  // Dockerfile.gamad + docker-compose.gamad.yml dans le répertoire de déploiement.
+  // Pour docker-compose, retourne simplement le chemin du fichier existant dans le repo.
+  private async resolveComposePath(
+    pdn: PlanDeDeploiementNormalise,
+    deployPath: string,
+  ): Promise<string> {
+    const { kind, compose_file, build_command, start_command, output_dir } = pdn.artifact;
+
+    if (kind === 'docker-compose') {
+      return `${deployPath}/${compose_file ?? 'docker-compose.yml'}`;
+    }
+
+    const port = Object.values(pdn.runtime.ports)[0] ?? 3000;
+    const generatedComposePath = `${deployPath}/docker-compose.gamad.yml`;
+
+    if (kind === 'static') {
+      const distDir = output_dir ?? 'dist';
+      const buildCmd = build_command ?? 'npm run build';
+
+      // nginx.conf minimaliste avec SPA fallback (try_files → index.html)
+      await writeFile(
+        `${deployPath}/nginx-gamad.conf`,
+        'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  index index.html;\n  location / { try_files $uri $uri/ /index.html; }\n}\n',
+      );
+      await writeFile(
+        `${deployPath}/Dockerfile.gamad`,
+        `FROM node:20-alpine AS builder\nWORKDIR /app\nCOPY . .\nRUN npm install\nRUN ${buildCmd}\nFROM nginx:alpine\nCOPY --from=builder /app/${distDir} /usr/share/nginx/html\nCOPY nginx-gamad.conf /etc/nginx/conf.d/default.conf\nEXPOSE 80\n`,
+      );
+      await writeFile(
+        generatedComposePath,
+        `services:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile.gamad\n    ports:\n      - "${port}:80"\n    restart: unless-stopped\n`,
+      );
+    } else {
+      // node kind : génère un Dockerfile qui installe et démarre l'app
+      const startCmd = start_command ?? 'npm start';
+      const buildLine = build_command ? `\nRUN ${build_command}` : '';
+
+      await writeFile(
+        `${deployPath}/Dockerfile.gamad`,
+        `FROM node:20-alpine\nWORKDIR /app\nCOPY . .\nRUN npm install${buildLine}\nEXPOSE ${port}\nCMD ${JSON.stringify(startCmd.split(' '))}\n`,
+      );
+      await writeFile(
+        generatedComposePath,
+        `services:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile.gamad\n    ports:\n      - "${port}:${port}"\n    restart: unless-stopped\n`,
+      );
+    }
+
+    return generatedComposePath;
   }
 }
