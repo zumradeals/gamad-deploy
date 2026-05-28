@@ -2,12 +2,17 @@
 // RÈGLE ABSOLUE : seuls org_id et user_id sont extraits du JWT.
 // Le rôle (org_role, platform_role) n'est JAMAIS lu depuis le JWT — vérifié en base (INV-06).
 // La portée tenant est injectée par l'infrastructure, jamais fournie par le client.
+// Vérification suspension : suspended_at IS NOT NULL → UnauthorizedException (migration 0006).
 
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import type { NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { eq } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { TenantContext } from '@gamad/contracts';
+import { users } from '@gamad/schema';
+import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
 
 /** Étend Express.Request pour porter le contexte tenant résolu. */
 export interface TenantRequest extends Request {
@@ -16,7 +21,9 @@ export interface TenantRequest extends Request {
 
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
-  use(req: TenantRequest, _res: Response, next: NextFunction): void {
+  constructor(@Inject(DB_TOKEN) private readonly db: NodePgDatabase) {}
+
+  async use(req: TenantRequest, _res: Response, next: NextFunction): Promise<void> {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       throw new UnauthorizedException('En-tête Authorization manquant ou mal formé.');
@@ -45,6 +52,17 @@ export class TenantMiddleware implements NestMiddleware {
     }
     if (typeof userId !== 'string' || userId.length === 0) {
       throw new UnauthorizedException('Claim JWT invalide : user_id manquant ou non string.');
+    }
+
+    // Vérification suspension — lecture en base à chaque requête, pas de cache (INV-06)
+    const [userRow] = await this.db
+      .select({ suspendedAt: users.suspendedAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (userRow?.suspendedAt !== null && userRow?.suspendedAt !== undefined) {
+      throw new UnauthorizedException('Compte suspendu.');
     }
 
     req.tenant = { org_id: orgId, user_id: userId };

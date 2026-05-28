@@ -32,6 +32,13 @@ import { AdminBrandingPage } from '@/pages/admin/AdminBrandingPage';
 import { AdminFeaturesPage } from '@/pages/admin/AdminFeaturesPage';
 import { AdminLimitsPage } from '@/pages/admin/AdminLimitsPage';
 import { AdminMaintenancePage } from '@/pages/admin/AdminMaintenancePage';
+// Admin routes (Phase 2)
+import { AdminUsersPage } from '@/pages/admin/AdminUsersPage';
+import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage';
+import { AdminOrgsPage } from '@/pages/admin/AdminOrgsPage';
+import { AdminOrgDetailPage } from '@/pages/admin/AdminOrgDetailPage';
+import { AdminPlansPage } from '@/pages/admin/AdminPlansPage';
+import { AdminTemplatesPage } from '@/pages/admin/AdminTemplatesPage';
 
 export function App() {
   return (
@@ -79,6 +86,14 @@ export function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
               <Route path="/admin/overview" element={<AdminOverviewPage />} />
+              {/* Phase 2 */}
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
+              <Route path="/admin/orgs" element={<AdminOrgsPage />} />
+              <Route path="/admin/orgs/:id" element={<AdminOrgDetailPage />} />
+              <Route path="/admin/plans" element={<AdminPlansPage />} />
+              <Route path="/admin/templates" element={<AdminTemplatesPage />} />
+              {/* Settings */}
               <Route path="/admin/settings" element={<AdminSettingsLayout />}>
                 <Route index element={<AdminSettingsIndexRedirect />} />
                 <Route path="branding" element={<AdminBrandingPage />} />

@@ -12,6 +12,8 @@ export const users = pgTable('users', {
   fullName: text('full_name'),
   /** 🔑 Jamais en clair — valeur bcrypt/argon2 chiffrée au repos. */
   passwordHash: text('password_hash').notNull(),
+  /** NULL = actif, NOT NULL = suspendu (migration 0006). Vérifié dans TenantMiddleware. */
+  suspendedAt: timestamp('suspended_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
