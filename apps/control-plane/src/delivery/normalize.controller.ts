@@ -24,6 +24,7 @@ interface NormalizeCommitBody {
   draft_id: string;
   repo_url: string;
   branch?: string;
+  overwrite_existing?: boolean;
   /**
    * Jamais loggé (CLAUDE.md §8).
    * Optionnel si GitHub OAuth connecté — le token chiffré est récupéré depuis la DB.
@@ -82,9 +83,13 @@ export class NormalizeController {
     // Résolution du token : PAT manuel > token OAuth déchiffré depuis DB (CLAUDE.md §8).
     let gitToken = body.git_token;
     if (!gitToken) {
-      const stored = await this.oauthRepo.find(req.tenant.org_id, req.tenant.user_id);
-      if (stored) {
-        gitToken = decryptOAuthToken(stored.encryptedToken);
+      try {
+        const stored = await this.oauthRepo.find(req.tenant.org_id, req.tenant.user_id);
+        if (stored) {
+          gitToken = decryptOAuthToken(stored.encryptedToken);
+        }
+      } catch {
+        // Table absente ou erreur DB — on continue sans token OAuth
       }
     }
     if (!gitToken) {
@@ -100,7 +105,7 @@ export class NormalizeController {
       mode: 'pr',
       targetBranch,
       defaultBranch: targetBranch,
-      overwriteExisting: false,
+      overwriteExisting: body.overwrite_existing ?? false,
       confirmDefaultBranch: false,
     });
 

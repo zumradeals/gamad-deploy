@@ -26,7 +26,14 @@ export class GithubOAuthCallbackController {
     @Query('state') state: string,
     @Res() res: Response,
   ): Promise<void> {
-    const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:5173';
+    // Priorité : FRONTEND_URL explicite > dérivé de CONTROL_PLANE_URL > dérivé de DOMAIN > dev local
+    const frontendUrl =
+      process.env['FRONTEND_URL'] ??
+      (process.env['CONTROL_PLANE_URL']
+        ? process.env['CONTROL_PLANE_URL'].replace(/\/api\/?$/, '')
+        : null) ??
+      (process.env['DOMAIN'] ? `https://${process.env['DOMAIN']}` : null) ??
+      'http://localhost:5173';
 
     if (!code || !state) {
       res.redirect(`${frontendUrl}/app/settings/github?error=missing_params`);

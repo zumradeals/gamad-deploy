@@ -401,7 +401,9 @@ function Step3() {
         branch,
         analysis: {
           has_dockerfile: analysisResult.hasDockerfile,
-          has_compose_file: analysisResult.hasCompose,
+          // En re-normalisation forcée, on ignore le docker-compose.yml existant
+          // pour que le générateur produise un nouveau fichier avec ${APP_HOST_PORT}.
+          has_compose_file: forceRenormalize ? false : analysisResult.hasCompose,
           has_gamad_json: analysisResult.hasGamadJson,
           detected_framework: analysisResult.detectedFramework,
         },
@@ -427,7 +429,7 @@ function Step3() {
     }
     setPhase('committing');
     normalizeCommit.mutate(
-      { draftId, repoUrl, branch, gitToken },
+      { draftId, repoUrl, branch, gitToken, overwriteExisting: forceRenormalize },
       {
         onSuccess: (result) => {
           setPrUrl(result.pr_url);
