@@ -41,7 +41,8 @@ export { CONTROL_PLANE_URL } from './adapters.constants';
     { provide: AgentPort, useClass: AgentHttpAdapter },
     { provide: DbProviderPort, useClass: DbProviderStub },
     { provide: AWAIT_HEALTH_INTERVAL_MS, useValue: 5_000 },
-    { provide: AWAIT_HEALTH_MAX_ATTEMPTS, useValue: 12 },
+    // 72 × 5 s = 6 min — laisse le temps au docker build de se terminer sur VPS froid.
+    { provide: AWAIT_HEALTH_MAX_ATTEMPTS, useValue: 72 },
   ],
   exports: [
     DB_TOKEN,

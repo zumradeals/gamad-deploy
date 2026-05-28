@@ -46,17 +46,16 @@ export function createAgentServer(
           return;
         }
 
-        deploymentService.deploy(parsed)
-          .then(() => {
-            res.writeHead(202, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ accepted: true }));
-          })
-          .catch((err: unknown) => {
-            const message = err instanceof Error ? err.message : String(err);
-            console.error(`[gamad-agent] deploy ${parsed.deployment_id} FAILED: ${message}`);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: message }));
-          });
+        // Répondre 202 immédiatement — le déploiement s'exécute en arrière-plan.
+        // Les erreurs sont reportées via les callbacks agent ; les health checks déterminent
+        // le succès (INV-03). Bloquer ici causerait l'échec du dispatch-agent si docker build
+        // dépasse le timeout BullMQ ou échoue après plusieurs minutes.
+        deploymentService.deploy(parsed).catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[gamad-agent] deploy ${parsed.deployment_id} FAILED: ${message}`);
+        });
+        res.writeHead(202, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ accepted: true }));
         return;
       });
       return;

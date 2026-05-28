@@ -68,5 +68,6 @@ export class PipelineWorkerService implements OnModuleInit, OnModuleDestroy {
 // Valeurs par défaut AWAIT_HEALTH pour production — override dans les tests via module.
 export const PRODUCTION_AWAIT_HEALTH_PROVIDERS = [
   { provide: AWAIT_HEALTH_INTERVAL_MS, useValue: 5_000 },
-  { provide: AWAIT_HEALTH_MAX_ATTEMPTS, useValue: 12 },
+  // 72 × 5 s = 6 min — laisse le temps au docker build de se terminer sur VPS froid.
+  { provide: AWAIT_HEALTH_MAX_ATTEMPTS, useValue: 72 },
 ];
