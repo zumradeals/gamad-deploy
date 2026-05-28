@@ -14,6 +14,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { useWizardStore } from '@/store/wizard.store';
 import type { ProjectType } from '@/store/wizard.store';
 import { useAnalyzeRepo } from '@/api/projects';
+import { useNormalizePreview, useNormalizeCommit } from '@/api/normalize';
+import type { NormalizeFile } from '@/api/types';
 import { useServers, useCreateServer } from '@/api/servers';
 import type { ServerCreatedResult } from '@/api/types';
 import { useCreateDeployment } from '@/api/deployments';
@@ -210,7 +212,7 @@ function Step2() {
   );
 }
 
-// ── Step 3 : Preflight ────────────────────────────────────────────────────────
+// ── Step 3 : Preflight + Normalization Gate ───────────────────────────────────
 
 const CONFIDENCE_CLASS: Record<string, string> = {
   high: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -218,18 +220,104 @@ const CONFIDENCE_CLASS: Record<string, string> = {
   low: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
+type NormalizePhase =
+  | 'idle'          // Bouton "Prévisualiser"
+  | 'previewing'    // Appel /normalize/preview en cours
+  | 'preview'       // Fichiers listés, bouton "Ouvrir PR"
+  | 'committing'    // Appel /normalize/commit en cours
+  | 'pr_created'    // PR créée, bouton "J'ai mergé"
+  | 're_analyzing'  // Re-analyse en cours
+  | 'verified';     // Normalisé, "Suivant" débloqué
+
 function Step3() {
   const { t } = useTranslation('wizard');
-  const { analysisResult, setStep } = useWizardStore();
+  const currentOrgId = useAuthStore((s) => s.currentOrgId);
+  const { analysisResult, repoUrl, branch, gitToken, setAnalysisResult, setStep } = useWizardStore();
 
-  if (!analysisResult) {
-    setStep(2);
-    return null;
-  }
+  const [phase, setPhase] = useState<NormalizePhase>('idle');
+  const [draftId, setDraftId] = useState('');
+  const [prUrl, setPrUrl] = useState('');
+  const [generatedFiles, setGeneratedFiles] = useState<NormalizeFile[]>([]);
+
+  const normalizePreview = useNormalizePreview();
+  const normalizeCommit = useNormalizeCommit();
+  const reAnalyze = useAnalyzeRepo(currentOrgId);
+
+  if (!analysisResult) { setStep(2); return null; }
+
+  const alreadyNormalized = analysisResult.hasGamadJson;
+  const canProceed = alreadyNormalized || phase === 'verified';
+
+  const handlePreview = () => {
+    setPhase('previewing');
+    normalizePreview.mutate(
+      {
+        repoUrl,
+        branch,
+        analysis: {
+          has_dockerfile: analysisResult.hasDockerfile,
+          has_compose_file: analysisResult.hasCompose,
+          has_gamad_json: analysisResult.hasGamadJson,
+          detected_framework: analysisResult.detectedFramework,
+        },
+      },
+      {
+        onSuccess: (result) => {
+          setDraftId(result.draft_id);
+          setGeneratedFiles(result.draft.generated_files ?? []);
+          setPhase('preview');
+        },
+        onError: (error: Error) => {
+          toast.error(error.message);
+          setPhase('idle');
+        },
+      },
+    );
+  };
+
+  const handleCommit = () => {
+    if (!gitToken) {
+      toast.error(t('normalize.token.required'));
+      return;
+    }
+    setPhase('committing');
+    normalizeCommit.mutate(
+      { draftId, repoUrl, branch, gitToken },
+      {
+        onSuccess: (result) => {
+          setPrUrl(result.pr_url);
+          setPhase('pr_created');
+        },
+        onError: (error: Error) => {
+          toast.error(error.message);
+          setPhase('preview');
+        },
+      },
+    );
+  };
+
+  const handleMerged = () => {
+    setPhase('re_analyzing');
+    reAnalyze.mutate(
+      { repoUrl, branch, ...(gitToken ? { gitToken } : {}) },
+      {
+        onSuccess: (result) => {
+          setAnalysisResult(result);
+          setPhase('verified');
+        },
+        onError: (error: Error) => {
+          toast.error(error.message);
+          setPhase('pr_created');
+        },
+      },
+    );
+  };
 
   return (
     <div className="space-y-6">
       <h2 className="font-display text-xl font-bold text-[--text]">{t('preflight.title')}</h2>
+
+      {/* Résumé de l'analyse */}
       <dl className="rounded-lg border border-[--border] bg-[--surface] divide-y divide-[--border]">
         {[
           { key: 'preflight.stack', value: analysisResult.stack },
@@ -250,6 +338,7 @@ function Step3() {
           </dd>
         </div>
       </dl>
+
       {analysisResult.assumptions.length > 0 && (
         <div>
           <p className="text-sm font-medium text-[--text] mb-2">{t('preflight.assumptions')}</p>
@@ -263,7 +352,97 @@ function Step3() {
           </ul>
         </div>
       )}
-      <StepFooter onNext={() => setStep(4)} onBack={() => setStep(2)} />
+
+      {/* Gate de normalisation — obligatoire si pas de gamad.json */}
+      {!alreadyNormalized && phase !== 'verified' && (
+        <div className="rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 p-4 space-y-3">
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+            ⚠ {t('normalize.required')}
+          </p>
+          <p className="text-xs text-amber-600 dark:text-amber-400">{t('normalize.subtitle')}</p>
+
+          {phase === 'idle' && (
+            <Button size="sm" onClick={handlePreview} className="w-full">
+              {t('normalize.preview.btn')}
+            </Button>
+          )}
+
+          {phase === 'previewing' && (
+            <div className="flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin text-[--accent]" />
+              <span className="text-xs">{t('normalize.previewing')}</span>
+            </div>
+          )}
+
+          {phase === 'preview' && (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-[--text]">{t('normalize.files.title')}</p>
+              <ul className="space-y-0.5">
+                <li className="text-xs font-mono text-[--text-muted]">· gamad.json</li>
+                {generatedFiles.map((f) => (
+                  <li key={f.path} className="text-xs font-mono text-[--text-muted]">· {f.path}</li>
+                ))}
+              </ul>
+              {!gitToken && (
+                <p className="text-xs text-red-500">{t('normalize.token.required')}</p>
+              )}
+              <Button size="sm" onClick={handleCommit} disabled={!gitToken} className="w-full">
+                {t('normalize.commit.btn')}
+              </Button>
+            </div>
+          )}
+
+          {phase === 'committing' && (
+            <div className="flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin text-[--accent]" />
+              <span className="text-xs">{t('normalize.committing')}</span>
+            </div>
+          )}
+
+          {phase === 'pr_created' && (
+            <div className="space-y-3">
+              <div className="text-xs">
+                <span className="font-medium">{t('normalize.pr.done')} </span>
+                <a
+                  href={prUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[--accent] underline break-all"
+                >
+                  {prUrl}
+                </a>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400">{t('normalize.pr.merge_hint')}</p>
+              <Button size="sm" onClick={handleMerged} className="w-full">
+                {t('normalize.pr.merged')}
+              </Button>
+            </div>
+          )}
+
+          {phase === 're_analyzing' && (
+            <div className="flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin text-[--accent]" />
+              <span className="text-xs">{t('normalize.reanalyze')}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bannière "normalisé" */}
+      {phase === 'verified' && (
+        <div className="rounded-lg border border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 p-4 flex items-center gap-2">
+          <Check size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            {t('normalize.verified')}
+          </span>
+        </div>
+      )}
+
+      <StepFooter
+        onNext={() => setStep(4)}
+        onBack={() => setStep(2)}
+        nextDisabled={!canProceed}
+      />
     </div>
   );
 }
@@ -537,6 +716,7 @@ interface StepFooterProps {
   loadingLabel?: string;
   isSubmit?: boolean;
   isLoading?: boolean;
+  nextDisabled?: boolean;
 }
 
 function StepFooter({
@@ -548,6 +728,7 @@ function StepFooter({
   loadingLabel,
   isSubmit = false,
   isLoading = false,
+  nextDisabled = false,
 }: StepFooterProps) {
   const { t } = useTranslation('wizard');
   const navigate = useNavigate();
@@ -571,7 +752,7 @@ function StepFooter({
         <Button
           type={isSubmit ? 'submit' : 'button'}
           onClick={isSubmit ? undefined : onNext}
-          disabled={isLoading}
+          disabled={isLoading || nextDisabled}
           className="gap-2"
         >
           {isLoading && <Loader2 size={14} className="animate-spin" />}

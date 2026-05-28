@@ -38,4 +38,4 @@ export type { DeploymentPlanRecord, DeploymentLogRecord, DeploymentStateTransiti
 export type { DeploymentStatus, CreateProjectRequest, CreateProjectResponse, LaunchDeploymentRequest, LaunchDeploymentResponse, DeploymentStatusResponse, BillingCheckoutRequest, BillingCheckoutResponse, StreamEventType, StreamEvent } from './api';
 
 // C-13 — ContractGenerator
-export type { GamadContractDraft, CommitContractParams, CommitResult, ContractGenerator } from './contract-generator';
+export type { GamadContractDraft, GeneratedFile, CommitContractParams, CommitResult, ContractGenerator } from './contract-generator';

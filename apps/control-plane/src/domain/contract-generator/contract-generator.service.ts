@@ -11,8 +11,10 @@ import type {
   ContractGenerator,
   ContratRepo,
   GamadContractDraft,
+  GeneratedFile,
   RepoAnalysis,
 } from '@gamad/contracts';
+import type { PlanDeDeploiementNormalise } from '@gamad/contracts';
 import { SourceInferer } from '../source-resolver/source-inferer';
 
 export class ContractGeneratorService implements ContractGenerator {
@@ -31,15 +33,17 @@ export class ContractGeneratorService implements ContractGenerator {
       );
     }
 
+    // La normalisation crée toujours un docker-compose.yml dans le repo.
+    // artifact_type est donc toujours 'docker-compose' après normalisation (INV-02).
+    const generated_files = buildGeneratedFiles(pdn);
+
     const contract: ContratRepo = {
       contract_version: '1.0',
       name: inferName(analysis),
-      artifact_type: pdn.artifact.kind,
+      artifact_type: 'docker-compose',
       source_ref: analysis.ref ?? { type: 'branch', value: 'main' },
       runtime: {
-        ...(pdn.artifact.compose_file !== undefined
-          ? { compose_file: pdn.artifact.compose_file }
-          : {}),
+        compose_file: 'docker-compose.yml',
         ports: pdn.runtime.ports,
       },
       env: [],
@@ -49,7 +53,13 @@ export class ContractGeneratorService implements ContractGenerator {
       policies: { ban_latest: false, on_error_stop: true },
     };
 
-    return { contract, confidence, assumptions, warnings };
+    return {
+      contract,
+      confidence,
+      assumptions,
+      warnings,
+      ...(generated_files.length > 0 ? { generated_files } : {}),
+    };
   }
 
   commitToRepo(_params: CommitContractParams): Promise<CommitResult> {
@@ -63,4 +73,57 @@ function inferName(analysis: RepoAnalysis): string {
   if (!analysis.repo_url) return 'app';
   const parts = analysis.repo_url.split('/');
   return parts[parts.length - 1]?.replace(/\.git$/, '') ?? 'app';
+}
+
+function buildGeneratedFiles(pdn: PlanDeDeploiementNormalise): GeneratedFile[] {
+  const port = pdn.runtime.ports.http ?? 3000;
+  const { kind, build_command, start_command, output_dir } = pdn.artifact;
+
+  if (kind === 'docker-compose') return [];
+
+  if (kind === 'static') {
+    const distDir = output_dir ?? 'dist';
+    const buildCmd = build_command ?? 'npm run build';
+    return [
+      {
+        path: 'nginx.conf',
+        content:
+          'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  index index.html;\n' +
+          '  location / { try_files $uri $uri/ /index.html; }\n}\n',
+      },
+      {
+        path: 'Dockerfile',
+        content:
+          `FROM node:20-alpine AS builder\nWORKDIR /app\nCOPY . .\n` +
+          `RUN npm install\nRUN ${buildCmd}\n` +
+          `FROM nginx:alpine\n` +
+          `COPY --from=builder /app/${distDir} /usr/share/nginx/html\n` +
+          `COPY nginx.conf /etc/nginx/conf.d/default.conf\nEXPOSE 80\n`,
+      },
+      {
+        path: 'docker-compose.yml',
+        content:
+          `services:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile\n` +
+          `    ports:\n      - "${port}:80"\n    restart: unless-stopped\n`,
+      },
+    ];
+  }
+
+  // node kind
+  const startCmd = start_command ?? 'npm start';
+  const buildLine = build_command ? `\nRUN ${build_command}` : '';
+  return [
+    {
+      path: 'Dockerfile',
+      content:
+        `FROM node:20-alpine\nWORKDIR /app\nCOPY . .\nRUN npm install${buildLine}\n` +
+        `EXPOSE ${port}\nCMD ${JSON.stringify(startCmd.split(' '))}\n`,
+    },
+    {
+      path: 'docker-compose.yml',
+      content:
+        `services:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile\n` +
+        `    ports:\n      - "${port}:${port}"\n    restart: unless-stopped\n`,
+    },
+  ];
 }

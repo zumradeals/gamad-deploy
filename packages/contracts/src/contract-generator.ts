@@ -7,6 +7,11 @@
 import type { ContratRepo } from './repo-contract';
 import type { RepoAnalysis } from './source-resolver';
 
+export interface GeneratedFile {
+  path: string;
+  content: string;
+}
+
 export interface GamadContractDraft {
   contract: ContratRepo;
   /** 0..1 — certitude de l'inférence. */
@@ -15,6 +20,11 @@ export interface GamadContractDraft {
   assumptions: string[];
   /** Ce que l'utilisateur doit vérifier avant validation. */
   warnings: string[];
+  /**
+   * Fichiers à créer dans le repo lors de la normalisation (PR).
+   * Vide pour les repos docker-compose (fichier déjà présent).
+   */
+  generated_files?: GeneratedFile[];
 }
 
 export interface CommitContractParams {
