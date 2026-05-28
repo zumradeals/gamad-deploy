@@ -19,4 +19,8 @@ export interface PipelineJobData {
    * le temps du pipeline, supprimé avec le job (removeOnComplete: true).
    */
   gitToken?: string;
+  /** Domaine personnalisé configuré dans le wizard — injecté dans proxy.domain du PDN. */
+  domain?: string;
+  /** HTTPS activé dans le wizard — injecté dans proxy.https du PDN. */
+  httpsEnabled?: boolean;
 }
