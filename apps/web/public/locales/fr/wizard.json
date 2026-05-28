@@ -59,6 +59,8 @@
   "normalize.pr.merged": "J'ai mergé la PR",
   "normalize.reanalyze": "Re-analyse du dépôt en cours...",
   "normalize.verified": "Dépôt normalisé — déploiement prévisible",
+  "normalize.already": "Dépôt déjà normalisé — gamad.json présent",
+  "normalize.rerun": "Re-normaliser quand même",
   "normalize.token.required": "Un token Git est requis pour ouvrir une PR. Retournez à l'étape précédente et renseignez le token.",
   "repo.github.connect": "Connecter GitHub pour accéder à vos repos",
   "repo.github.picker": "Sélectionner depuis GitHub",

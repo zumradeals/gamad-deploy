@@ -48,9 +48,9 @@ export class GithubOAuthCallbackController {
 
       res.redirect(`${frontendUrl}/app/settings/github?connected=true`);
     } catch (err) {
-      const msg = err instanceof Error ? encodeURIComponent(err.message) : 'unknown';
-      console.error('[GithubOAuth callback]', err instanceof Error ? err.message : err);
-      res.redirect(`${frontendUrl}/app/settings/github?error=${msg}`);
+      // Ne jamais exposer le message d'erreur brut dans l'URL (fuite DB + token, CLAUDE.md §8).
+      console.error('[GithubOAuth callback] erreur:', err instanceof Error ? err.message : err);
+      res.redirect(`${frontendUrl}/app/settings/github?error=oauth_callback_failed`);
     }
   }
 }
