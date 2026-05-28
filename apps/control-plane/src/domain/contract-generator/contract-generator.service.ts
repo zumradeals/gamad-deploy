@@ -24,9 +24,6 @@ export class ContractGeneratorService implements ContractGenerator {
     const { pdn, confidence, assumptions } = this.inferer.infer(analysis);
     const warnings: string[] = [];
 
-    warnings.push(
-      'health.checks[0].path est une estimation — vérifier le chemin réel avant déploiement',
-    );
     if (confidence < 0.50) {
       warnings.push(
         `Inférence insuffisante (confidence=${confidence}) — revoir artifact_type, ports et health checks avant commit`,
@@ -36,6 +33,13 @@ export class ContractGeneratorService implements ContractGenerator {
     // La normalisation crée toujours un docker-compose.yml dans le repo.
     // artifact_type est donc toujours 'docker-compose' après normalisation (INV-02).
     const generated_files = buildGeneratedFiles(pdn);
+
+    // Extraire le path depuis l'URL du PDN (source de vérité : SourceInferer).
+    // Apps statiques → '/', apps node/docker-compose → '/health'.
+    const healthCheckUrl = pdn.health_checks[0]?.url ?? '';
+    const healthCheckPath = healthCheckUrl
+      ? (() => { try { return new URL(healthCheckUrl).pathname; } catch { return '/health'; } })()
+      : (pdn.artifact.kind === 'static' ? '/' : '/health');
 
     const contract: ContratRepo = {
       contract_version: '1.0',
@@ -48,7 +52,7 @@ export class ContractGeneratorService implements ContractGenerator {
       },
       env: [],
       health: {
-        checks: [{ name: 'default', path: '/health', expected_status: 200, timeout_s: 30 }],
+        checks: [{ name: 'default', path: healthCheckPath, expected_status: 200, timeout_s: 30 }],
       },
       policies: { ban_latest: false, on_error_stop: true },
     };
