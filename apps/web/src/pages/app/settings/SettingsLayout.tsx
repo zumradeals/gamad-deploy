@@ -57,7 +57,7 @@ export function SettingsLayout() {
     if (!allSettled) return;
     hasLoaded.current = true;
     load({
-      profile: profileQ.data ?? { id: '', name: '', email: '', pendingEmail: null, avatarUrl: null, language: 'fr' as const, theme: 'system' as const },
+      profile: profileQ.data ?? { id: '', name: '', email: '', pendingEmail: null, avatarUrl: null, language: 'fr' as const, theme: 'system' as const, platformRole: 'user' as const },
       org: orgQ.data ?? { id: currentOrgId ?? '', name: '', slug: '', plan: 'free' as const },
       notifications: notifQ.data ?? { deploySuccess: true, deployFailed: true, rollback: true, renewalUpcoming: false, webhookUrl: '' },
     });

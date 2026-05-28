@@ -3,11 +3,15 @@ import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { users } from '@gamad/schema';
 import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
+import { AuthorizationHelper } from '../persistence/authorization';
 import type { TenantRequest } from '../persistence/tenant-middleware';
 
 @Controller('users')
 export class UserController {
-  constructor(@Inject(DB_TOKEN) private readonly db: NodePgDatabase) {}
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: NodePgDatabase,
+    private readonly authHelper: AuthorizationHelper,
+  ) {}
 
   @Get('me')
   async getMe(@Req() req: TenantRequest) {
@@ -19,6 +23,9 @@ export class UserController {
 
     if (!user) throw new NotFoundException('Utilisateur introuvable.');
 
+    // Rôle plateforme lu en base — jamais depuis le JWT (INV-06)
+    const platformRole = await this.authHelper.getPlatformRole(req.tenant);
+
     return {
       id: user.id,
       name: user.fullName ?? user.email,
@@ -27,6 +34,7 @@ export class UserController {
       avatarUrl: null,
       language: 'fr',
       theme: 'system',
+      platformRole: platformRole ?? 'user',
     };
   }
 }

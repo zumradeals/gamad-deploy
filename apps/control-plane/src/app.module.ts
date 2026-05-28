@@ -1,5 +1,5 @@
 import type { MiddlewareConsumer } from '@nestjs/common';
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod } from '@nestjs/common';
 import { OrchestrationModule } from './orchestration/orchestration.module';
 import { AdaptersModule } from './adapters/adapters.module';
 import { GithubContractAdapter } from './adapters/github-contract.adapter';
@@ -28,9 +28,10 @@ import { DeploymentNotifierService } from './delivery/deployment-notifier.servic
 import { DraftStoreService } from './delivery/draft-store.service';
 import { ContractGeneratorService } from './domain/contract-generator/contract-generator.service';
 import { TenantMiddleware } from './persistence/tenant-middleware';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
-  imports: [AdaptersModule, OrchestrationModule],
+  imports: [AdaptersModule, OrchestrationModule, AdminModule],
   controllers: [DeploymentController, CallbackController, ContractController, NormalizeController, GithubController, GithubOAuthCallbackController, BillingController, HealthController, AuthController, UserController, OrgController, ServerController],
   providers: [
     // ── Ports → Adaptateurs (C-13 ContractGenerator) ─────────────────────────
@@ -61,7 +62,13 @@ export class AppModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(TenantMiddleware)
-      .exclude('agent/(.*)', 'webhooks/(.*)', 'auth/(.*)', 'health')
+      .exclude(
+        'agent/(.*)',
+        'webhooks/(.*)',
+        'auth/(.*)',
+        'health',
+        { path: 'admin/settings', method: RequestMethod.GET },
+      )
       .forRoutes('*');
   }
 }

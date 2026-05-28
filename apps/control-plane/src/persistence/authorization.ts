@@ -3,15 +3,16 @@
 // platform_role → table user_roles (pouvoir sur la plateforme)
 // Séparation org_role / platform_role : conforme à C-10 et docs/03 §3.2.
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { TenantContext, OrgRole, PlatformRole } from '@gamad/contracts';
 import { organizationMembers, userRoles } from '@gamad/schema';
+import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
 
 @Injectable()
 export class AuthorizationHelper {
-  constructor(private readonly db: NodePgDatabase) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: NodePgDatabase) {}
 
   /**
    * Retourne le rôle de l'utilisateur dans l'organisation courante.
