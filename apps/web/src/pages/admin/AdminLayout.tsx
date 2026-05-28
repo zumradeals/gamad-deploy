@@ -3,7 +3,7 @@
 // La sécurité réelle est côté serveur (AdminGuard) : cette vérification n'est qu'UX.
 
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Settings, Shield, Users, Building2, CreditCard, Package } from 'lucide-react';
+import { LayoutDashboard, Settings, Shield, Users, Building2, CreditCard, Package, Rocket, Server, Receipt, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 import { Toaster } from '@/components/ui/toast';
@@ -15,6 +15,10 @@ const NAV_ITEMS = [
   { to: '/admin/orgs', icon: Building2, label: 'Organisations' },
   { to: '/admin/plans', icon: CreditCard, label: 'Plans' },
   { to: '/admin/templates', icon: Package, label: 'Templates' },
+  { to: '/admin/deployments', icon: Rocket, label: 'Déploiements' },
+  { to: '/admin/servers', icon: Server, label: 'Serveurs' },
+  { to: '/admin/billing', icon: Receipt, label: 'Facturation' },
+  { to: '/admin/audit', icon: ClipboardList, label: 'Audit' },
   { to: '/admin/settings/branding', icon: Settings, label: 'Paramètres' },
 ] as const;
 
