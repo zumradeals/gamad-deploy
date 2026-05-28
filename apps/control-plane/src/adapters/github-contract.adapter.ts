@@ -71,7 +71,18 @@ export class GithubContractAdapter extends GitWritePort {
       const existing = await this.getFileInfo(base, newBranch, headers);
       this.assertOverwrite(existing, params.overwriteExisting);
 
-      // 4. Écrit gamad.json sur la branche.
+      // 4. Écrit les fichiers générés (Dockerfile, docker-compose.yml, nginx.conf…).
+      for (const file of validatedDraft.draft.generated_files ?? []) {
+        const fileSha = await this.getFileSha(base, file.path, newBranch, headers);
+        await this.ghPut(`${base}/contents/${encodeURIComponent(file.path)}`, headers, {
+          message: `chore: add ${file.path} (via GAMAD Deploy, draft ${draftId})`,
+          content: Buffer.from(file.content).toString('base64'),
+          branch: newBranch,
+          ...(fileSha ? { sha: fileSha } : {}),
+        });
+      }
+
+      // 5. Écrit gamad.json sur la branche.
       await this.ghPut(`${base}/contents/gamad.json`, headers, {
         message: `chore: add gamad.json (via GAMAD Deploy, draft ${draftId})`,
         content: Buffer.from(content).toString('base64'),
@@ -79,7 +90,7 @@ export class GithubContractAdapter extends GitWritePort {
         ...(existing?.sha ? { sha: existing.sha } : {}),
       });
 
-      // 5. Ouvre la PR.
+      // 6. Ouvre la PR.
       const pr = await this.ghPost<GitHubPr>(`${base}/pulls`, headers, {
         title: 'chore: add gamad.json (GAMAD Deploy)',
         body: this.prBody(validatedDraft),
@@ -141,6 +152,18 @@ export class GithubContractAdapter extends GitWritePort {
     return (await res.json()) as GitHubContent;
   }
 
+  private async getFileSha(
+    base: string,
+    path: string,
+    branch: string,
+    headers: Record<string, string>,
+  ): Promise<string | undefined> {
+    const res = await fetch(`${base}/contents/${encodeURIComponent(path)}?ref=${branch}`, { headers });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as GitHubContent;
+    return data.sha ?? undefined;
+  }
+
   private assertOverwrite(existing: GitHubContent | null, overwriteExisting: boolean): void {
     if (existing && !overwriteExisting) {
       throw Object.assign(
@@ -189,9 +212,13 @@ export class GithubContractAdapter extends GitWritePort {
   }
 
   private prBody(validatedDraft: ValidatedContractDraft): string {
-    const { assumptions, warnings, confidence } = validatedDraft.draft;
+    const { assumptions, warnings, confidence, generated_files } = validatedDraft.draft;
     const lines = [
       `Généré par GAMAD Deploy — confidence ${Math.round(confidence * 100)}%`,
+      '',
+      '**Fichiers créés**',
+      '- gamad.json',
+      ...(generated_files ?? []).map((f) => `- ${f.path}`),
       '',
       '**Hypothèses**',
       ...assumptions.map((a) => `- ${a}`),

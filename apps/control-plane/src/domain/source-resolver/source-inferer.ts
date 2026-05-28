@@ -62,6 +62,10 @@ export class SourceInferer {
     const { kind, compose_file, build_command, start_command, output_dir, port, confidence } =
       resolution;
 
+    // Pour les SPA statiques servis par nginx, le health check cible '/' (retourne l'index.html,
+    // status 200). Pour node/docker-compose, '/health' est la convention.
+    const healthPath = kind === 'static' ? '/' : '/health';
+
     const pdn: PlanDeDeploiementNormalise = {
       pdn_version: '1.0',
       source: {
@@ -88,7 +92,7 @@ export class SourceInferer {
       health_checks: [
         {
           name: 'default',
-          url: `http://localhost:${port}/health`,
+          url: `http://localhost:${port}${healthPath}`,
           expected_status: 200,
           timeout_s: 30,
           attempts: 3,

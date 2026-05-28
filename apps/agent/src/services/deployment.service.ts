@@ -51,7 +51,8 @@ export class DeploymentService {
       await this.logger.log(callback_url, deployment_id, 'step_started', 'docker-up');
       if (!(await this.docker.isRunning(deployment_id))) {
         const envVars = this.buildEnvMap(pdn);
-        const composePath = `${BASE_PATH}/${deployment_id}/${pdn.artifact.compose_file ?? 'docker-compose.yml'}`;
+        const deployPath = `${BASE_PATH}/${deployment_id}`;
+        const composePath = this.resolveComposePath(pdn, deployPath);
         await this.docker.composeUp(deployment_id, composePath, envVars);
       }
 
@@ -123,5 +124,23 @@ export class DeploymentService {
       upstreamUrl: `http://localhost:${firstPort}`,
       https: pdn.proxy.https,
     };
+  }
+
+  // Retourne le chemin du docker-compose.yml dans le repo cloné.
+  // INV-02 : seul artifact_type='docker-compose' est valide ici — les repos
+  // node/static doivent passer par la normalisation wizard (NormalizeController)
+  // qui crée docker-compose.yml dans le repo avant tout déploiement.
+  private resolveComposePath(pdn: PlanDeDeploiementNormalise, deployPath: string): string {
+    const { kind, compose_file } = pdn.artifact;
+
+    if (kind !== 'docker-compose') {
+      throw new Error(
+        `artifact_type="${kind}" non supporté par l'agent. ` +
+        'Normalisez le dépôt via le wizard GAMAD (étape Préflight) ' +
+        'pour générer docker-compose.yml avant de déployer.',
+      );
+    }
+
+    return `${deployPath}/${compose_file ?? 'docker-compose.yml'}`;
   }
 }

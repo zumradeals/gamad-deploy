@@ -98,6 +98,28 @@ export interface AnalysisResult {
   detectedFramework: string;
 }
 
+// ── Normalize ─────────────────────────────────────────────────────────────────
+
+export interface NormalizeFile {
+  path: string;
+  content: string;
+}
+
+export interface NormalizePreviewResult {
+  draft_id: string;
+  draft: {
+    contract: unknown;
+    confidence: number;
+    assumptions: string[];
+    warnings: string[];
+    generated_files?: NormalizeFile[];
+  };
+}
+
+export interface NormalizeCommitResult {
+  pr_url: string;
+}
+
 export interface LogLine {
   level: 'info' | 'warn' | 'error' | 'success';
   message: string;
