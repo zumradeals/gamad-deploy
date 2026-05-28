@@ -98,6 +98,32 @@ export interface AnalysisResult {
   detectedFramework: string;
 }
 
+// ── GitHub OAuth (C-14) ───────────────────────────────────────────────────────
+
+export interface GitHubOAuthStatus {
+  connected: boolean;
+  github_login?: string;
+  github_user_id?: number;
+  scopes?: string[];
+  connected_at?: string;
+}
+
+export interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  default_branch: string;
+  html_url: string;
+  description: string | null;
+}
+
+export interface GitHubForkResult {
+  fork_url: string;
+  full_name: string;
+  default_branch: string;
+}
+
 // ── Normalize ─────────────────────────────────────────────────────────────────
 
 export interface NormalizeFile {

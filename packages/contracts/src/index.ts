@@ -39,3 +39,6 @@ export type { DeploymentStatus, CreateProjectRequest, CreateProjectResponse, Lau
 
 // C-13 — ContractGenerator
 export type { GamadContractDraft, GeneratedFile, CommitContractParams, CommitResult, ContractGenerator } from './contract-generator';
+
+// C-14 — GitHub OAuth
+export type { GitHubOAuthStatus, GitHubRepo, GitHubForkResult } from './github-oauth';

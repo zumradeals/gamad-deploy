@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { User, Building2, Key, Bell, AlertTriangle } from 'lucide-react';
+import { User, Building2, Key, Bell, AlertTriangle, Github } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 import { useSettingsStore } from '@/store/settings.store';
@@ -10,6 +10,7 @@ import { useProfileQuery, useOrgSettingsQuery, useNotificationsQuery } from '@/a
 const NAV_ITEMS = [
   { to: '/app/settings/profile', icon: User, labelKey: 'nav.profile' },
   { to: '/app/settings/organization', icon: Building2, labelKey: 'nav.organization' },
+  { to: '/app/settings/github', icon: Github, labelKey: 'nav.github' },
   { to: '/app/settings/api-keys', icon: Key, labelKey: 'nav.apiKeys' },
   { to: '/app/settings/notifications', icon: Bell, labelKey: 'nav.notifications' },
   { to: '/app/settings/danger', icon: AlertTriangle, labelKey: 'nav.danger' },

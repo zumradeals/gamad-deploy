@@ -107,5 +107,17 @@
   "danger.delete.confirm.desc": "This action is irreversible. All your personal data will be deleted.",
   "danger.delete.confirm.prompt": "Type your email address to confirm",
   "danger.delete.confirm.yes": "Delete permanently",
-  "save.error": "Error saving. Please try again."
+  "save.error": "Error saving. Please try again.",
+  "nav.github": "GitHub",
+  "github.title": "GitHub Connection",
+  "github.subtitle": "Connect your GitHub account for repo picker, automatic fork, and token-less normalisation.",
+  "github.connected.label": "Connected as",
+  "github.connected.since": "Since",
+  "github.connected.scopes": "Granted scopes",
+  "github.disconnect": "Disconnect GitHub",
+  "github.disconnect.confirm": "Disconnect your GitHub account? Deployments using this token will need a manual token.",
+  "github.connect.btn": "Connect GitHub",
+  "github.connect.hint": "Redirects to GitHub to authorise GAMAD Deploy (scope: repo, read:user).",
+  "github.disconnected": "GitHub disconnected.",
+  "github.error": "GitHub connection error: {message}"
 }

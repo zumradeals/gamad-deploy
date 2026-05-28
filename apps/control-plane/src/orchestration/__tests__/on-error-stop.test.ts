@@ -12,6 +12,7 @@ import { IllegalTransitionError } from '../../domain/state-machine/state-machine
 import { PipelineJobRunner } from '../processors/pipeline-job-runner';
 import { ProvisionDbProcessor } from '../processors/provision-db.processor';
 import { DispatchAgentProcessor } from '../processors/dispatch-agent.processor';
+import type { GithubOAuthTokenRepository } from '../../adapters/github-oauth-token.repository';
 import { AwaitHealthProcessor } from '../processors/await-health.processor';
 import { AgentStub } from '../stubs/agent.stub';
 import { DbProviderStub } from '../stubs/db-provider.stub';
@@ -78,7 +79,7 @@ describe('on_error_stop : transition via Domain (pas de write direct)', () => {
     const runner = new PipelineJobRunner(repo, agent);
     const queue = { add: async () => ({}) } as unknown as Queue;
 
-    const proc = new DispatchAgentProcessor(runner, agent, queue);
+    const proc = new DispatchAgentProcessor(runner, agent, queue, { find: async () => null, upsert: async () => undefined, delete: async () => undefined } as unknown as GithubOAuthTokenRepository);
     await proc.process(mockJob(JOB_DATA));
 
     // Rollback stub appelé

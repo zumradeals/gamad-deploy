@@ -11,6 +11,8 @@ import { ContractGeneratorService } from '../domain/contract-generator/contract-
 import { ValidatedContractDraft } from '../domain/contract-generator/validated-contract-draft';
 import { DraftStoreService } from './draft-store.service';
 import { GitWritePort } from '../adapters/git-write.port';
+import { GithubOAuthTokenRepository } from '../adapters/github-oauth-token.repository';
+import { decryptOAuthToken } from '../adapters/github-oauth.adapter';
 
 interface NormalizePreviewBody {
   repo_url: string;
@@ -22,8 +24,11 @@ interface NormalizeCommitBody {
   draft_id: string;
   repo_url: string;
   branch?: string;
-  /** Jamais loggé (CLAUDE.md §8). */
-  git_token: string;
+  /**
+   * Jamais loggé (CLAUDE.md §8).
+   * Optionnel si GitHub OAuth connecté — le token chiffré est récupéré depuis la DB.
+   */
+  git_token?: string;
 }
 
 @Controller('normalize')
@@ -32,6 +37,7 @@ export class NormalizeController {
     @Inject(ContractGeneratorService) private readonly generator: ContractGeneratorService,
     @Inject(DraftStoreService) private readonly draftStore: DraftStoreService,
     @Inject(GitWritePort) private readonly gitWrite: GitWritePort,
+    @Inject(GithubOAuthTokenRepository) private readonly oauthRepo: GithubOAuthTokenRepository,
   ) {}
 
   /** Étape 1 — génère le draft + les fichiers à créer, émet le draft_id. */
@@ -73,10 +79,24 @@ export class NormalizeController {
     const { owner, repoName } = parseRepoUrl(body.repo_url);
     const targetBranch = body.branch ?? 'main';
 
+    // Résolution du token : PAT manuel > token OAuth déchiffré depuis DB (CLAUDE.md §8).
+    let gitToken = body.git_token;
+    if (!gitToken) {
+      const stored = await this.oauthRepo.find(req.tenant.org_id, req.tenant.user_id);
+      if (stored) {
+        gitToken = decryptOAuthToken(stored.encryptedToken);
+      }
+    }
+    if (!gitToken) {
+      throw new BadRequestException(
+        'git_token manquant — fournissez un token ou connectez GitHub via /github/auth-url',
+      );
+    }
+
     const result = await this.gitWrite.commitGamadJson(validatedDraft, {
       owner,
       repoName,
-      gitToken: body.git_token, // jamais loggé (CLAUDE.md §8)
+      gitToken, // jamais loggé (CLAUDE.md §8)
       mode: 'pr',
       targetBranch,
       defaultBranch: targetBranch,
