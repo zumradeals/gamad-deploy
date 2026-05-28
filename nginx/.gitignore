@@ -1,0 +1,9 @@
+# Clés privées et données de compte certbot — jamais en dépôt
+certbot/conf/accounts/
+certbot/conf/archive/
+certbot/conf/live/
+certbot/conf/renewal/
+certbot/conf/renewal-hooks/
+certbot/conf/.updated-options-ssl-nginx-conf
+certbot/conf/options-ssl-nginx.conf
+certbot/conf/ssl-dhparams.pem
