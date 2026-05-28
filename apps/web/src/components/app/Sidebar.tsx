@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -8,12 +8,14 @@ interface NavItem {
   to: string;
   icon: React.ElementType;
   labelKey: string;
+  labelFallback?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/app/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
   { to: '/app/projects', icon: FolderGit2, labelKey: 'nav.projects' },
   { to: '/app/servers', icon: Server, labelKey: 'nav.servers' },
+  { to: '/app/marketplace', icon: Store, labelKey: 'nav.marketplace', labelFallback: 'Marketplace' },
   { to: '/app/billing', icon: CreditCard, labelKey: 'nav.billing' },
   { to: '/app/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
@@ -26,7 +28,6 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { t } = useTranslation('dashboard');
   const logout = useAuthStore((s) => s.logout);
-  const platformRole = useAuthStore((s) => s.platformRole);
 
   return (
     <aside
@@ -56,7 +57,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {NAV_ITEMS.map(({ to, icon: Icon, labelKey }) => (
+        {NAV_ITEMS.map(({ to, icon: Icon, labelKey, labelFallback }) => (
           <NavLink
             key={to}
             to={to}
@@ -71,31 +72,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             }
           >
             <Icon size={17} />
-            {t(labelKey)}
+            {/* Fallback label pour les entrées sans clé i18n dédiée */}
+            {labelFallback ?? t(labelKey)}
           </NavLink>
         ))}
       </nav>
-
-      {/* Admin link — visible uniquement si superadmin */}
-      {platformRole === 'superadmin' && (
-        <div className="px-3 pb-2">
-          <NavLink
-            to="/admin/overview"
-            onClick={onClose}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                isActive
-                  ? 'bg-emerald-500/15 text-emerald-400 font-medium'
-                  : 'text-[--text-muted] hover:bg-[rgba(16,185,129,0.06)] hover:text-[--text]',
-              )
-            }
-          >
-            <ShieldCheck size={17} />
-            Administration
-          </NavLink>
-        </div>
-      )}
 
       {/* Bottom section */}
       <div className="border-t border-[--border] p-3 space-y-2">
