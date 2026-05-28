@@ -16,11 +16,13 @@ export class DeploymentLoggerService {
     event: AgentCallbackPayload['event'],
     message?: string,
     payload?: Record<string, unknown>,
+    level?: AgentCallbackPayload['level'],
   ): Promise<void> {
     const sanitizedPayload = payload !== undefined ? this.sanitize(payload) : undefined;
     const basePayload: AgentCallbackPayload = {
       deployment_id: deploymentId,
       event,
+      ...(level !== undefined ? { level } : {}),
       ...(message !== undefined ? { message } : {}),
       ...(sanitizedPayload !== undefined ? { payload: sanitizedPayload } : {}),
     };

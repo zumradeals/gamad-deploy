@@ -70,6 +70,8 @@ export class DeploymentService {
 
       await this.logger.log(callback_url, deployment_id, 'finished', 'déploiement terminé');
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.logger.log(callback_url, deployment_id, 'log', message, undefined, 'error').catch(() => undefined);
       if (pdn.policies.on_error_stop) {
         await this.rollback(deployment_id, callback_url, pdn);
       }
