@@ -15,6 +15,7 @@ import { MigrateDataProcessor } from './processors/migrate-data.processor';
 import { DispatchAgentProcessor } from './processors/dispatch-agent.processor';
 import { AwaitHealthProcessor } from './processors/await-health.processor';
 import { SourceResolverService } from '../domain/index';
+import { GithubOAuthTokenRepository } from '../adapters/github-oauth-token.repository';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SourceResolverService } from '../domain/index';
   ],
   providers: [
     SourceResolverService,
+    GithubOAuthTokenRepository,
     PipelineJobRunner,
     ResolveSourceProcessor,
     ProvisionDbProcessor,

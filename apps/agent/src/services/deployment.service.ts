@@ -14,6 +14,7 @@ import type { SnapshotPort } from '../ports/snapshot.port';
 import type { SnapshotManifest } from '../ports/snapshot.port';
 import type { DeploymentLoggerService } from './deployment-logger.service';
 import { PdnSecurityValidatorService } from './pdn-security-validator.service';
+import { stableHostPort } from './port-allocation';
 
 const BASE_PATH = '/var/lib/gamad/deployments';
 
@@ -50,7 +51,10 @@ export class DeploymentService {
 
       await this.logger.log(callback_url, deployment_id, 'step_started', 'docker-up');
       if (!(await this.docker.isRunning(deployment_id))) {
-        const envVars = this.buildEnvMap(pdn);
+        const envVars = {
+          ...this.buildEnvMap(pdn),
+          APP_HOST_PORT: String(stableHostPort(deployment_id)),
+        };
         const deployPath = `${BASE_PATH}/${deployment_id}`;
         const composePath = this.resolveComposePath(pdn, deployPath);
         await this.docker.composeUp(deployment_id, composePath, envVars);
@@ -58,7 +62,7 @@ export class DeploymentService {
 
       if (pdn.proxy.domain !== undefined) {
         await this.logger.log(callback_url, deployment_id, 'step_started', 'nginx-config');
-        const nginxConfig = this.buildNginxConfig(pdn);
+        const nginxConfig = this.buildNginxConfig(pdn, deployment_id);
         await this.nginx.writeConfig(deployment_id, nginxConfig);
         await this.nginx.reload();
 
@@ -117,11 +121,10 @@ export class DeploymentService {
     return result;
   }
 
-  private buildNginxConfig(pdn: PlanDeDeploiementNormalise): NginxConfig {
-    const firstPort = Object.values(pdn.runtime.ports)[0] ?? 3000;
+  private buildNginxConfig(pdn: PlanDeDeploiementNormalise, deploymentId: string): NginxConfig {
     return {
       domain: pdn.proxy.domain ?? '',
-      upstreamUrl: `http://localhost:${firstPort}`,
+      upstreamUrl: `http://localhost:${stableHostPort(deploymentId)}`,
       https: pdn.proxy.https,
     };
   }

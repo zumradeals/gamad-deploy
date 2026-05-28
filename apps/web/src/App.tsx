@@ -21,6 +21,7 @@ import { OrganizationPage } from '@/pages/app/settings/OrganizationPage';
 import { ApiKeysPage } from '@/pages/app/settings/ApiKeysPage';
 import { NotificationsPage } from '@/pages/app/settings/NotificationsPage';
 import { DangerPage } from '@/pages/app/settings/DangerPage';
+import { GitHubPage } from '@/pages/app/settings/GitHubPage';
 import { PrivateRoute } from '@/routes/PrivateRoute';
 import { PublicRoute } from '@/routes/PublicRoute';
 
@@ -58,6 +59,7 @@ export function App() {
                 <Route index element={<SettingsIndexRedirect />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="organization" element={<OrganizationPage />} />
+                <Route path="github" element={<GitHubPage />} />
                 <Route path="api-keys" element={<ApiKeysPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="danger" element={<DangerPage />} />

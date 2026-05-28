@@ -15,6 +15,7 @@ import { useWizardStore } from '@/store/wizard.store';
 import type { ProjectType } from '@/store/wizard.store';
 import { useAnalyzeRepo } from '@/api/projects';
 import { useNormalizePreview, useNormalizeCommit } from '@/api/normalize';
+import { useGitHubStatus, useGitHubRepos, useGitHubAuthUrl, useGitHubFork } from '@/api/github';
 import type { NormalizeFile } from '@/api/types';
 import { useServers, useCreateServer } from '@/api/servers';
 import type { ServerCreatedResult } from '@/api/types';
@@ -129,14 +130,23 @@ function Step2() {
   const currentOrgId = useAuthStore((s) => s.currentOrgId);
   const { repoUrl, branch, gitToken, setRepoUrl, setBranch, setGitToken, setAnalysisResult, setStep } = useWizardStore();
   const analyze = useAnalyzeRepo(currentOrgId);
+  const { data: ghStatus } = useGitHubStatus();
+  const { data: ghRepos, isLoading: reposLoading } = useGitHubRepos(1, ghStatus?.connected);
+  const getAuthUrl = useGitHubAuthUrl();
+
+  const [mode, setMode] = useState<'github' | 'manual'>(ghStatus?.connected ? 'github' : 'manual');
+  const [search, setSearch] = useState('');
   const [analyzeStep, setAnalyzeStep] = useState(0);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<RepoForm>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<RepoForm>({
     resolver: zodResolver(repoSchema),
     defaultValues: { repoUrl, branch, gitToken },
   });
 
-  // Cycle through analysis step messages while pending
+  useEffect(() => {
+    if (ghStatus?.connected && mode === 'manual') setMode('github');
+  }, [ghStatus?.connected]); // intentionally limited — only react to connection status changes
+
   useEffect(() => {
     if (!analyze.isPending) return;
     setAnalyzeStep(0);
@@ -153,42 +163,133 @@ function Step2() {
     analyze.mutate(
       { repoUrl: data.repoUrl, branch: data.branch, ...(data.gitToken ? { gitToken: data.gitToken } : {}) },
       {
-        onSuccess: (result) => {
-          setAnalysisResult(result);
-          setStep(3);
-        },
+        onSuccess: (result) => { setAnalysisResult(result); setStep(3); },
         onError: (error: Error) => {
-          const detail = error.message && error.message !== 'Internal server error'
+          toast.error(error.message && error.message !== 'Internal server error'
             ? error.message
-            : t('analyze.error', { ns: 'wizard' });
-          toast.error(detail);
+            : t('analyze.error', { ns: 'wizard' }));
         },
       },
     );
   };
 
+  const handlePickRepo = (repo: { full_name: string; default_branch: string; html_url: string }) => {
+    const url = repo.html_url;
+    setValue('repoUrl', url);
+    setValue('branch', repo.default_branch);
+    setRepoUrl(url);
+    setBranch(repo.default_branch);
+  };
+
+  const filteredRepos = (ghRepos ?? []).filter((r) =>
+    r.full_name.toLowerCase().includes(search.toLowerCase()) ||
+    (r.description ?? '').toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
     <form onSubmit={(e) => { void handleSubmit(onSubmit)(e); }} className="space-y-6" noValidate>
       <h2 className="font-display text-xl font-bold text-[--text]">{t('repo.title', { ns: 'wizard' })}</h2>
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="repoUrl">{t('repo.url', { ns: 'wizard' })}</Label>
-          <Input id="repoUrl" placeholder={t('repo.url.placeholder', { ns: 'wizard' })} {...register('repoUrl')} />
-          {errors.repoUrl && <p className="text-xs text-red-500">{t(errors.repoUrl.message ?? 'error.required', { ns: 'common' })}</p>}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="branch">{t('repo.branch', { ns: 'wizard' })}</Label>
-          <Input id="branch" placeholder={t('repo.branch.placeholder', { ns: 'wizard' })} {...register('branch')} />
-          {errors.branch && <p className="text-xs text-red-500">{t(errors.branch.message ?? 'error.required', { ns: 'common' })}</p>}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="gitToken">{t('repo.token', { ns: 'wizard' })}</Label>
-          <Input id="gitToken" type="password" placeholder={t('repo.token.placeholder', { ns: 'wizard' })} {...register('gitToken')} />
-          <p className="text-xs text-[--text-muted]">{t('repo.token.hint', { ns: 'wizard' })}</p>
-        </div>
-      </div>
 
-      {/* Analysis progress */}
+      {/* GitHub / Manual toggle */}
+      {ghStatus?.connected && (
+        <div className="flex rounded-lg border border-[--border] overflow-hidden text-sm">
+          <button
+            type="button"
+            onClick={() => setMode('github')}
+            className={cn('flex-1 py-2 px-3 transition-colors', mode === 'github' ? 'bg-[--accent] text-white' : 'bg-[--surface] text-[--text-muted] hover:bg-[rgba(16,185,129,0.06)]')}
+          >
+            {t('repo.github.picker', { ns: 'wizard' })}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('manual')}
+            className={cn('flex-1 py-2 px-3 transition-colors', mode === 'manual' ? 'bg-[--accent] text-white' : 'bg-[--surface] text-[--text-muted] hover:bg-[rgba(16,185,129,0.06)]')}
+          >
+            {t('repo.github.manual', { ns: 'wizard' })}
+          </button>
+        </div>
+      )}
+
+      {/* GitHub repo picker */}
+      {mode === 'github' && ghStatus?.connected && (
+        <div className="space-y-3">
+          <Input
+            placeholder={t('repo.github.search', { ns: 'wizard' })}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div className="rounded-lg border border-[--border] bg-[--surface] divide-y divide-[--border] max-h-60 overflow-y-auto">
+            {reposLoading ? (
+              <div className="flex items-center gap-2 p-4 text-[--text-muted]">
+                <Loader2 size={14} className="animate-spin" />
+                <span className="text-sm">{t('repo.github.loading', { ns: 'wizard' })}</span>
+              </div>
+            ) : filteredRepos.length === 0 ? (
+              <p className="text-sm text-[--text-muted] p-4">{t('repo.github.empty', { ns: 'wizard' })}</p>
+            ) : (
+              filteredRepos.map((repo) => (
+                <button
+                  key={repo.id}
+                  type="button"
+                  onClick={() => handlePickRepo(repo)}
+                  className={cn(
+                    'w-full px-4 py-3 text-left hover:bg-[rgba(16,185,129,0.06)] transition-colors',
+                    repoUrl === repo.html_url && 'bg-[rgba(16,185,129,0.08)]',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-[--text] truncate">{repo.full_name}</span>
+                    {repo.private && (
+                      <span className="shrink-0 text-xs bg-[--border] text-[--text-muted] px-1.5 py-0.5 rounded">
+                        {t('repo.github.private', { ns: 'wizard' })}
+                      </span>
+                    )}
+                  </div>
+                  {repo.description && (
+                    <p className="text-xs text-[--text-muted] mt-0.5 truncate">{repo.description}</p>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+          {/* Hidden URL/branch fields still need values */}
+          <input type="hidden" {...register('repoUrl')} />
+          <input type="hidden" {...register('branch')} />
+          {errors.repoUrl && <p className="text-xs text-red-500">{t('error.required', { ns: 'common' })}</p>}
+        </div>
+      )}
+
+      {/* Manual form (or GitHub not connected) */}
+      {(mode === 'manual' || !ghStatus?.connected) && (
+        <div className="space-y-4">
+          {!ghStatus?.connected && (
+            <button
+              type="button"
+              onClick={() => getAuthUrl.mutate(undefined, { onSuccess: ({ url }) => { window.location.href = url; } })}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-[--border] px-4 py-3 text-sm text-[--text-muted] hover:border-[--accent] hover:text-[--accent] transition-colors"
+            >
+              <span>🔗</span>
+              {t('repo.github.connect', { ns: 'wizard' })}
+            </button>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="repoUrl">{t('repo.url', { ns: 'wizard' })}</Label>
+            <Input id="repoUrl" placeholder={t('repo.url.placeholder', { ns: 'wizard' })} {...register('repoUrl')} />
+            {errors.repoUrl && <p className="text-xs text-red-500">{t(errors.repoUrl.message ?? 'error.required', { ns: 'common' })}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="branch">{t('repo.branch', { ns: 'wizard' })}</Label>
+            <Input id="branch" placeholder={t('repo.branch.placeholder', { ns: 'wizard' })} {...register('branch')} />
+            {errors.branch && <p className="text-xs text-red-500">{t(errors.branch.message ?? 'error.required', { ns: 'common' })}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="gitToken">{t('repo.token', { ns: 'wizard' })}</Label>
+            <Input id="gitToken" type="password" placeholder={t('repo.token.placeholder', { ns: 'wizard' })} {...register('gitToken')} />
+            <p className="text-xs text-[--text-muted]">{t('repo.token.hint', { ns: 'wizard' })}</p>
+          </div>
+        </div>
+      )}
+
       {analyze.isPending && (
         <div className="flex items-center gap-3 rounded-lg border border-[--border] bg-[rgba(16,185,129,0.04)] p-4">
           <Loader2 size={18} className="text-[--accent] animate-spin shrink-0" />
@@ -227,12 +328,13 @@ type NormalizePhase =
   | 'committing'    // Appel /normalize/commit en cours
   | 'pr_created'    // PR créée, bouton "J'ai mergé"
   | 're_analyzing'  // Re-analyse en cours
-  | 'verified';     // Normalisé, "Suivant" débloqué
+  | 'verified'      // Normalisé, "Suivant" débloqué
+  | 'forking';      // Fork en cours (repo non possédé par l'utilisateur)
 
 function Step3() {
   const { t } = useTranslation('wizard');
   const currentOrgId = useAuthStore((s) => s.currentOrgId);
-  const { analysisResult, repoUrl, branch, gitToken, setAnalysisResult, setStep } = useWizardStore();
+  const { analysisResult, repoUrl, branch, gitToken, setAnalysisResult, setRepoUrl, setBranch, setStep } = useWizardStore();
 
   const [phase, setPhase] = useState<NormalizePhase>('idle');
   const [draftId, setDraftId] = useState('');
@@ -242,6 +344,46 @@ function Step3() {
   const normalizePreview = useNormalizePreview();
   const normalizeCommit = useNormalizeCommit();
   const reAnalyze = useAnalyzeRepo(currentOrgId);
+  const { data: ghStatus } = useGitHubStatus();
+  const forkRepo = useGitHubFork();
+
+  // Parse owner/repo from URL to detect non-owned repos
+  const [parsedOwner, parsedRepo] = (() => {
+    try {
+      const parts = new URL(repoUrl).pathname.split('/').filter(Boolean);
+      return [parts[0] ?? null, parts[1] ?? null] as const;
+    } catch { return [null, null] as const; }
+  })();
+
+  const needsFork =
+    !!parsedOwner &&
+    !!ghStatus?.connected &&
+    !!ghStatus.github_login &&
+    parsedOwner.toLowerCase() !== ghStatus.github_login.toLowerCase();
+
+  const handleFork = () => {
+    if (!parsedOwner || !parsedRepo) return;
+    setPhase('forking');
+    forkRepo.mutate(
+      { owner: parsedOwner, repo: parsedRepo },
+      {
+        onSuccess: (result) => {
+          toast.success(t('normalize.fork.success', { fork: result.full_name }));
+          setRepoUrl(result.fork_url);
+          setBranch(result.default_branch);
+          setPhase('re_analyzing');
+          reAnalyze.mutate(
+            { repoUrl: result.fork_url, branch: result.default_branch, ...(gitToken ? { gitToken } : {}) },
+            {
+              onSuccess: (analysis) => { setAnalysisResult(analysis); setPhase('idle'); },
+              onError: (err: Error) => { toast.error(err.message); setPhase('idle'); },
+            },
+          );
+        },
+        onError: (err: Error) => { toast.error(err.message); setPhase('idle'); },
+      },
+    );
+  };
 
   if (!analysisResult) { setStep(2); return null; }
 
@@ -276,7 +418,7 @@ function Step3() {
   };
 
   const handleCommit = () => {
-    if (!gitToken) {
+    if (!gitToken && !ghStatus?.connected) {
       toast.error(t('normalize.token.required'));
       return;
     }
@@ -353,8 +495,33 @@ function Step3() {
         </div>
       )}
 
-      {/* Gate de normalisation — obligatoire si pas de gamad.json */}
-      {!alreadyNormalized && phase !== 'verified' && (
+      {/* Fork gate — repo non possédé par l'utilisateur GitHub */}
+      {!alreadyNormalized && needsFork && phase !== 'verified' && (
+        <div className="rounded-lg border border-blue-400 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600 p-4 space-y-3">
+          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+            {t('normalize.fork.title')}
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400">{t('normalize.fork.subtitle')}</p>
+          <p className="text-xs text-[--text-muted]">
+            {t('normalize.fork.hint', { repo: `${parsedOwner}/${parsedRepo}` })}
+          </p>
+          {(phase === 'forking' || phase === 're_analyzing') ? (
+            <div className="flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin text-blue-600 dark:text-blue-400" />
+              <span className="text-xs">
+                {phase === 'forking' ? t('normalize.fork.loading') : t('normalize.reanalyze')}
+              </span>
+            </div>
+          ) : (
+            <Button size="sm" onClick={handleFork} className="w-full">
+              {t('normalize.fork.btn')}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Gate de normalisation — obligatoire si pas de gamad.json (et repo possédé) */}
+      {!alreadyNormalized && !needsFork && phase !== 'verified' && (
         <div className="rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 p-4 space-y-3">
           <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
             ⚠ {t('normalize.required')}
@@ -383,10 +550,10 @@ function Step3() {
                   <li key={f.path} className="text-xs font-mono text-[--text-muted]">· {f.path}</li>
                 ))}
               </ul>
-              {!gitToken && (
+              {!gitToken && !ghStatus?.connected && (
                 <p className="text-xs text-red-500">{t('normalize.token.required')}</p>
               )}
-              <Button size="sm" onClick={handleCommit} disabled={!gitToken} className="w-full">
+              <Button size="sm" onClick={handleCommit} disabled={!gitToken && !ghStatus?.connected} className="w-full">
                 {t('normalize.commit.btn')}
               </Button>
             </div>

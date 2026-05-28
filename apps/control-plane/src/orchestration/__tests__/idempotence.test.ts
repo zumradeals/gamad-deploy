@@ -13,6 +13,7 @@ import { ResolveSourceProcessor } from '../processors/resolve-source.processor';
 import { ProvisionDbProcessor } from '../processors/provision-db.processor';
 import { MigrateDataProcessor } from '../processors/migrate-data.processor';
 import { DispatchAgentProcessor } from '../processors/dispatch-agent.processor';
+import type { GithubOAuthTokenRepository } from '../../adapters/github-oauth-token.repository';
 import { AwaitHealthProcessor } from '../processors/await-health.processor';
 import { AgentStub } from '../stubs/agent.stub';
 import { DbProviderStub } from '../stubs/db-provider.stub';
@@ -115,7 +116,7 @@ describe('idempotence : dispatch-agent (protection contre double dispatch)', () 
     const runner = new PipelineJobRunner(repo, agent);
     const queue = makeQueue();
 
-    const proc = new DispatchAgentProcessor(runner, agent, queue);
+    const proc = new DispatchAgentProcessor(runner, agent, queue, { find: async () => null, upsert: async () => undefined, delete: async () => undefined } as unknown as GithubOAuthTokenRepository);
     await proc.process(mockJob(JOB_DATA));
     await proc.process(mockJob(JOB_DATA)); // replay
 

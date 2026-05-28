@@ -8,6 +8,9 @@ import { DeploymentController } from './delivery/deployment.controller';
 import { CallbackController } from './delivery/callback.controller';
 import { ContractController } from './delivery/contract.controller';
 import { NormalizeController } from './delivery/normalize.controller';
+import { GithubController } from './delivery/github.controller';
+import { GithubOAuthCallbackController } from './delivery/github-oauth-callback.controller';
+import { GithubOAuthTokenRepository } from './adapters/github-oauth-token.repository';
 import { BillingController } from './delivery/billing.controller';
 import { HealthController } from './delivery/health.controller';
 import { AuthController } from './delivery/auth.controller';
@@ -28,7 +31,7 @@ import { TenantMiddleware } from './persistence/tenant-middleware';
 
 @Module({
   imports: [AdaptersModule, OrchestrationModule],
-  controllers: [DeploymentController, CallbackController, ContractController, NormalizeController, BillingController, HealthController, AuthController, UserController, OrgController, ServerController],
+  controllers: [DeploymentController, CallbackController, ContractController, NormalizeController, GithubController, GithubOAuthCallbackController, BillingController, HealthController, AuthController, UserController, OrgController, ServerController],
   providers: [
     // ── Ports → Adaptateurs (C-13 ContractGenerator) ─────────────────────────
     { provide: GitWritePort, useClass: GithubContractAdapter },
@@ -51,6 +54,7 @@ import { TenantMiddleware } from './persistence/tenant-middleware';
     DeploymentNotifierService,
     DraftStoreService,
     AuthService,
+    GithubOAuthTokenRepository,
   ],
 })
 export class AppModule {

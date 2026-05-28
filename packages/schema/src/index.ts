@@ -9,4 +9,5 @@ export * from './tables/infrastructure';
 export * from './tables/projects';
 export * from './tables/deployments';
 export * from './tables/monetization';
+export * from './tables/github-oauth';
 export * from './tenant-tx';

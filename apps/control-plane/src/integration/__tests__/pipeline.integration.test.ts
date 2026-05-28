@@ -37,6 +37,7 @@ import { ResolveSourceProcessor } from '../../orchestration/processors/resolve-s
 import { ProvisionDbProcessor } from '../../orchestration/processors/provision-db.processor';
 import { MigrateDataProcessor } from '../../orchestration/processors/migrate-data.processor';
 import { DispatchAgentProcessor } from '../../orchestration/processors/dispatch-agent.processor';
+import type { GithubOAuthTokenRepository } from '../../adapters/github-oauth-token.repository';
 import { AwaitHealthProcessor } from '../../orchestration/processors/await-health.processor';
 import { AgentStub } from '../../orchestration/stubs/agent.stub';
 import { DbProviderStub } from '../../orchestration/stubs/db-provider.stub';
@@ -116,7 +117,7 @@ function makePipeline(agent: AgentStub, intervalMs = 0, maxAttempts = 3) {
   const resolveSource = new ResolveSourceProcessor(runner, new SourceResolverService(), queue);
   const provisionDb = new ProvisionDbProcessor(runner, dbProvider, queue);
   const migrateData = new MigrateDataProcessor(runner, dbProvider, queue);
-  const dispatchAgent = new DispatchAgentProcessor(runner, agent, queue);
+  const dispatchAgent = new DispatchAgentProcessor(runner, agent, queue, { find: async () => null, upsert: async () => undefined, delete: async () => undefined } as unknown as GithubOAuthTokenRepository);
   const awaitHealth = new AwaitHealthProcessor(runner, agent, intervalMs, maxAttempts);
 
   const worker = new Worker(
