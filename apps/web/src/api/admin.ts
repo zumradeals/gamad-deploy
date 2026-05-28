@@ -1,4 +1,4 @@
-// Hooks React Query pour le dashboard superadmin (Phase 1 + Phase 2).
+// Hooks React Query pour le dashboard superadmin (Phase 1 + Phase 2 + Phase 3).
 // GET /admin/settings est public (sans JWT) — appel direct via fetch.
 // Les autres endpoints nécessitent un JWT superadmin.
 
@@ -387,4 +387,217 @@ export function useChangeTemplateStatus() {
       void qc.invalidateQueries({ queryKey: ['admin', 'templates'] });
     },
   });
+}
+
+// ── Types Phase 3 ─────────────────────────────────────────────────────────────
+
+export interface AdminDeploymentSummary {
+  id: string;
+  projectName: string;
+  orgName: string;
+  orgId: string;
+  status: 'pending' | 'running' | 'success' | 'failed' | 'rolled_back';
+  triggerType: 'manual' | 'webhook' | 'auto';
+  durationSeconds: number | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface AdminDeploymentLog {
+  id: string;
+  step: string | null;
+  level: 'info' | 'warn' | 'error' | 'success';
+  message: string;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AdminServerSummary {
+  id: string;
+  name: string;
+  host: string;
+  agentPort: number;
+  status: 'provisioning' | 'installing' | 'ready' | 'error' | 'destroyed';
+  agentVersion: string | null;
+  lastSeenAt: string | null;
+  isStale: boolean;
+  orgName: string;
+  orgId: string;
+  projectsCount: number;
+}
+
+export interface AdminBillingTransaction {
+  id: string;
+  orgName: string;
+  orgId: string;
+  type: 'subscription' | 'template_purchase' | 'credits';
+  amount: number;
+  currency: string;
+  status: 'pending' | 'success' | 'failed';
+  provider: string;
+  reference: string;
+  createdAt: string;
+}
+
+export interface AdminBillingSummary {
+  totalRevenue: number;
+  thisMonth: number;
+  successCount: number;
+  failedCount: number;
+}
+
+export interface AdminBillingResponse {
+  data: AdminBillingTransaction[];
+  total: number;
+  page: number;
+  limit: number;
+  summary: AdminBillingSummary;
+}
+
+export interface AdminAuditEntry {
+  id: string;
+  deploymentId: string;
+  projectName: string;
+  orgName: string;
+  orgId: string;
+  fromState: string | null;
+  toState: string;
+  reason: string | null;
+  createdAt: string;
+}
+
+// ── Hooks Phase 3 — Déploiements ──────────────────────────────────────────────
+
+/** GET /admin/deployments — liste paginée cross-tenant. */
+export function useAdminDeployments(params: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  orgId?: string;
+  search?: string;
+} = {}) {
+  const { page = 1, limit = 20, status = '', orgId = '', search = '' } = params;
+  const qs = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    ...(status ? { status } : {}),
+    ...(orgId ? { orgId } : {}),
+    ...(search ? { search } : {}),
+  });
+  return useQuery({
+    queryKey: ['admin', 'deployments', page, limit, status, orgId, search],
+    queryFn: () => apiRequest<PaginatedResponse<AdminDeploymentSummary>>(`/admin/deployments?${qs}`),
+    staleTime: 15_000,
+  });
+}
+
+/** GET /admin/deployments/:id/logs — logs d'un déploiement. */
+export function useAdminDeploymentLogs(id: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'deployments', id, 'logs'],
+    queryFn: () =>
+      apiRequest<{ deploymentId: string; logs: AdminDeploymentLog[] }>(
+        `/admin/deployments/${id!}/logs`,
+      ),
+    enabled: Boolean(id),
+    staleTime: 30_000,
+  });
+}
+
+// ── Hooks Phase 3 — Serveurs ──────────────────────────────────────────────────
+
+/** GET /admin/servers — liste complète (pas paginée, actualisation 30s). */
+export function useAdminServers() {
+  return useQuery({
+    queryKey: ['admin', 'servers'],
+    queryFn: () => apiRequest<{ data: AdminServerSummary[] }>('/admin/servers'),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}
+
+// ── Hooks Phase 3 — Facturation ───────────────────────────────────────────────
+
+/** GET /admin/billing — liste paginée avec résumé. */
+export function useAdminBilling(params: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  orgId?: string;
+} = {}) {
+  const { page = 1, limit = 20, status = '', orgId = '' } = params;
+  const qs = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    ...(status ? { status } : {}),
+    ...(orgId ? { orgId } : {}),
+  });
+  return useQuery({
+    queryKey: ['admin', 'billing', page, limit, status, orgId],
+    queryFn: () => apiRequest<AdminBillingResponse>(`/admin/billing?${qs}`),
+    staleTime: 30_000,
+  });
+}
+
+// ── Hooks Phase 3 — Audit ─────────────────────────────────────────────────────
+
+/** GET /admin/audit — liste paginée des transitions d'état. */
+export function useAdminAudit(params: {
+  page?: number;
+  limit?: number;
+  orgId?: string;
+  deploymentId?: string;
+  from?: string;
+  to?: string;
+} = {}) {
+  const { page = 1, limit = 50, orgId = '', deploymentId = '', from = '', to = '' } = params;
+  const qs = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    ...(orgId ? { orgId } : {}),
+    ...(deploymentId ? { deploymentId } : {}),
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
+  });
+  return useQuery({
+    queryKey: ['admin', 'audit', page, limit, orgId, deploymentId, from, to],
+    queryFn: () => apiRequest<PaginatedResponse<AdminAuditEntry>>(`/admin/audit?${qs}`),
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Déclenche le téléchargement du CSV d'audit.
+ * Utilise fetch brut pour forcer le download via Blob.
+ */
+export async function exportAuditCsv(params: {
+  orgId?: string;
+  from?: string;
+  to?: string;
+}): Promise<void> {
+  const { useAuthStore } = await import('@/store/auth.store');
+  const token = useAuthStore.getState().token;
+
+  const qs = new URLSearchParams();
+  if (params.orgId) qs.set('orgId', params.orgId);
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+
+  const res = await fetch(`/api/admin/audit/export?${qs.toString()}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) {
+    throw new Error(`Export CSV échoué : ${res.statusText}`);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'audit.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

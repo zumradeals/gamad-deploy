@@ -39,6 +39,11 @@ import { AdminOrgsPage } from '@/pages/admin/AdminOrgsPage';
 import { AdminOrgDetailPage } from '@/pages/admin/AdminOrgDetailPage';
 import { AdminPlansPage } from '@/pages/admin/AdminPlansPage';
 import { AdminTemplatesPage } from '@/pages/admin/AdminTemplatesPage';
+// Admin routes (Phase 3)
+import { AdminDeploymentsPage } from '@/pages/admin/AdminDeploymentsPage';
+import { AdminServersPage } from '@/pages/admin/AdminServersPage';
+import { AdminBillingPage } from '@/pages/admin/AdminBillingPage';
+import { AdminAuditPage } from '@/pages/admin/AdminAuditPage';
 
 export function App() {
   return (
@@ -93,6 +98,11 @@ export function App() {
               <Route path="/admin/orgs/:id" element={<AdminOrgDetailPage />} />
               <Route path="/admin/plans" element={<AdminPlansPage />} />
               <Route path="/admin/templates" element={<AdminTemplatesPage />} />
+              {/* Phase 3 */}
+              <Route path="/admin/deployments" element={<AdminDeploymentsPage />} />
+              <Route path="/admin/servers" element={<AdminServersPage />} />
+              <Route path="/admin/billing" element={<AdminBillingPage />} />
+              <Route path="/admin/audit" element={<AdminAuditPage />} />
               {/* Settings */}
               <Route path="/admin/settings" element={<AdminSettingsLayout />}>
                 <Route index element={<AdminSettingsIndexRedirect />} />
