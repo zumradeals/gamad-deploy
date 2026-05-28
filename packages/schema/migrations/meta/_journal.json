@@ -38,10 +38,10 @@
       "breakpoints": true
     },
     {
-      "idx": 5,
+      "idx": 7,
       "version": "7",
-      "when": 1748476800000,
-      "tag": "0006_user_suspension",
+      "when": 1748563200000,
+      "tag": "0007_marketplace",
       "breakpoints": true
     }
   ]

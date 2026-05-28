@@ -46,6 +46,12 @@ export const templates = pgTable('templates', {
   marketplaceLevel: templateLevelEnum('marketplace_level').notNull().default('draft'),
   priceAmount: integer('price_amount').notNull().default(0),
   isPublished: boolean('is_published').notNull().default(false),
+  /** Description longue affichée dans le marketplace. */
+  description: text('description').notNull().default(''),
+  /** Tags de catégorisation (ex. ['nodejs', 'api', 'postgres']). */
+  tags: text('tags').array().notNull().default([]),
+  /** Contenu brut du gamad.json validé (INV-02). Null si pas encore soumis. */
+  contractContent: text('contract_content'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
