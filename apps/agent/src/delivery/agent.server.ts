@@ -52,6 +52,7 @@ export function createAgentServer(
           })
           .catch((err: unknown) => {
             const message = err instanceof Error ? err.message : String(err);
+            console.error(`[gamad-agent] deploy ${parsed.deployment_id} FAILED: ${message}`);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: message }));
           });
