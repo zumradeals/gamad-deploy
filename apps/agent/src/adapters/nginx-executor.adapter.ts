@@ -1,6 +1,15 @@
 // INV-09 — Adaptateur nginx réel.
-// writeConfig crée /etc/nginx/sites-available/<id>.conf et symlink sites-enabled.
-// restoreFromSnapshot relit la config sauvegardée lors du snapshot S0.
+// Configurable via variables d'environnement pour supporter deux modes :
+//
+//   Mode hôte   (agent natif ou Docker sur VPS dédié) — défaut :
+//     GAMAD_NGINX_CONF_DIR    = /etc/nginx/sites-available
+//     GAMAD_NGINX_ENABLED_DIR = /etc/nginx/sites-enabled   (symlinks actifs)
+//     GAMAD_NGINX_RELOAD_CMD  = nginx -s reload
+//
+//   Mode Docker (agent Docker sur même VPS que le control-plane) :
+//     GAMAD_NGINX_CONF_DIR    = /etc/nginx/gamad-apps      (volume partagé)
+//     GAMAD_NGINX_ENABLED_DIR =                            (vide → pas de symlink)
+//     GAMAD_NGINX_RELOAD_CMD  = docker exec <nginx-container> nginx -s reload
 
 import { spawn } from 'node:child_process';
 import { writeFile, readFile, copyFile, mkdir, unlink, symlink } from 'node:fs/promises';
@@ -8,37 +17,42 @@ import { existsSync } from 'node:fs';
 import { NginxExecutorPort } from '../ports/nginx-executor.port';
 import type { NginxConfig } from '../ports/nginx-executor.port';
 
-const SITES_AVAILABLE = '/etc/nginx/sites-available';
-const SITES_ENABLED = '/etc/nginx/sites-enabled';
-const SNAPSHOT_BASE = '/var/lib/gamad/snapshots';
+const SITES_AVAILABLE = process.env['GAMAD_NGINX_CONF_DIR'] ?? '/etc/nginx/sites-available';
+const SITES_ENABLED   = process.env['GAMAD_NGINX_ENABLED_DIR'] ?? '/etc/nginx/sites-enabled';
+const RELOAD_CMD      = (process.env['GAMAD_NGINX_RELOAD_CMD'] ?? 'nginx -s reload').split(' ');
+const SNAPSHOT_BASE   = '/var/lib/gamad/snapshots';
 
 export class NginxExecutorAdapter extends NginxExecutorPort {
   async writeConfig(deploymentId: string, config: NginxConfig): Promise<void> {
     const confPath = `${SITES_AVAILABLE}/${deploymentId}.conf`;
-    const linkPath = `${SITES_ENABLED}/${deploymentId}.conf`;
 
+    await mkdir(SITES_AVAILABLE, { recursive: true });
     const content = this.renderConfig(config);
     await writeFile(confPath, content, { encoding: 'utf8', mode: 0o644 });
 
-    if (!existsSync(linkPath)) {
-      await symlink(confPath, linkPath);
+    if (SITES_ENABLED) {
+      await mkdir(SITES_ENABLED, { recursive: true });
+      const linkPath = `${SITES_ENABLED}/${deploymentId}.conf`;
+      if (!existsSync(linkPath)) {
+        await symlink(confPath, linkPath);
+      }
     }
   }
 
   async reload(): Promise<void> {
-    await this.run(['nginx', '-s', 'reload']);
+    await this.run(RELOAD_CMD);
   }
 
   async restoreFromSnapshot(deploymentId: string): Promise<void> {
     const snapshotNginxPath = `${SNAPSHOT_BASE}/${deploymentId}/nginx.conf`;
     const confPath = `${SITES_AVAILABLE}/${deploymentId}.conf`;
-    const linkPath = `${SITES_ENABLED}/${deploymentId}.conf`;
+    const linkPath = SITES_ENABLED ? `${SITES_ENABLED}/${deploymentId}.conf` : null;
 
     if (existsSync(snapshotNginxPath)) {
       await copyFile(snapshotNginxPath, confPath);
     } else {
       // Pas de config sauvegardée → supprimer les fichiers créés pendant le déploiement
-      await unlink(linkPath).catch(() => undefined);
+      if (linkPath) await unlink(linkPath).catch(() => undefined);
       await unlink(confPath).catch(() => undefined);
     }
   }
