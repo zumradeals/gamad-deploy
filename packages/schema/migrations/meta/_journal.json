@@ -26,7 +26,14 @@
     {
       "idx": 3,
       "version": "7",
-      "when": 1748390400000,
+      "when": 1748390400001,
+      "tag": "0003_p08_payment_state_transitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1748390400002,
       "tag": "0004_github_oauth_tokens",
       "breakpoints": true
     }
