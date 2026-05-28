@@ -17,6 +17,7 @@ interface NormalizeCommitInput {
   draftId: string;
   repoUrl: string;
   branch: string;
+  overwriteExisting?: boolean;
   /** Jamais loggé (CLAUDE.md §8). */
   gitToken: string;
 }
@@ -45,6 +46,7 @@ export function useNormalizeCommit() {
           repo_url: input.repoUrl,
           branch: input.branch,
           git_token: input.gitToken,
+          overwrite_existing: input.overwriteExisting ?? false,
         }),
       }),
   });
