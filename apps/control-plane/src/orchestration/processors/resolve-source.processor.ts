@@ -34,6 +34,10 @@ export class ResolveSourceProcessor {
       if (!repoAnalysis) throw new Error('repoAnalysis manquant dans le job resolve-source');
       const pdn = this.sourceResolver.resolve(repoAnalysis);
 
+      // Injecte domaine et https depuis le wizard — le Domain ne connaît pas ces configs (INV-01).
+      if (job.data.domain) pdn.proxy.domain = job.data.domain;
+      pdn.proxy.https = job.data.httpsEnabled ?? false;
+
       await this.runner.repo.savePlan(deploymentId, pdn, ctx.tenantCtx);
       await ctx.log('PDN calculé et persisté');
 
