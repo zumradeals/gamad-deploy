@@ -7,6 +7,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -14,12 +15,14 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { eq, ilike, or, count, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcryptjs';
 import {
   users,
   organizations,
@@ -29,6 +32,18 @@ import {
 import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
 import { AdminGuard } from './admin.guard';
 import type { TenantRequest } from '../persistence/tenant-middleware';
+
+interface CreateUserBody {
+  email: string;
+  fullName: string;
+  password: string;
+  platformRole: 'superadmin' | 'support' | 'user';
+}
+
+interface UpdateUserBody {
+  email?: string;
+  fullName?: string;
+}
 
 interface ChangeRoleBody {
   role: 'superadmin' | 'support' | 'user';
@@ -286,5 +301,166 @@ export class AdminUsersController {
     );
 
     return { token, expiresAt };
+  }
+
+  /**
+   * POST /admin/users — créer un utilisateur avec hash bcrypt (rounds=12).
+   * INV-05 : UUID auto-généré par la BDD.
+   */
+  @Post()
+  async createUser(@Body() body: CreateUserBody) {
+    const validRoles = ['superadmin', 'support', 'user'] as const;
+    if (!body.email || typeof body.email !== 'string') {
+      throw new BadRequestException('Le champ "email" est requis.');
+    }
+    if (!body.password || typeof body.password !== 'string' || body.password.length < 6) {
+      throw new BadRequestException('Le mot de passe doit contenir au moins 6 caractères.');
+    }
+    if (!validRoles.includes(body.platformRole as (typeof validRoles)[number])) {
+      throw new BadRequestException('platformRole invalide. Valeurs : superadmin, support, user.');
+    }
+
+    const existing = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, body.email.toLowerCase().trim()))
+      .limit(1);
+
+    if (existing.length > 0) {
+      throw new BadRequestException('Un utilisateur avec cet email existe déjà.');
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, 12);
+
+    const insertedRows = await this.db
+      .insert(users)
+      .values({
+        email: body.email.toLowerCase().trim(),
+        fullName: body.fullName?.trim() || null,
+        passwordHash,
+      })
+      .returning({ id: users.id, email: users.email, fullName: users.fullName });
+
+    const inserted = insertedRows[0];
+    if (!inserted) {
+      throw new Error('Échec de l\'insertion utilisateur.');
+    }
+
+    if (body.platformRole !== 'user') {
+      await this.db.insert(userRoles).values({
+        userId: inserted.id,
+        role: body.platformRole,
+      });
+    }
+
+    return {
+      id: inserted.id,
+      email: inserted.email,
+      fullName: inserted.fullName ?? null,
+      platformRole: body.platformRole,
+    };
+  }
+
+  /**
+   * PATCH /admin/users/:id — modifier email et/ou fullName.
+   */
+  @Patch(':id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() body: UpdateUserBody,
+  ) {
+    const [user] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+    if (body.email !== undefined) {
+      if (typeof body.email !== 'string' || !body.email.includes('@')) {
+        throw new BadRequestException('Email invalide.');
+      }
+      updates.email = body.email.toLowerCase().trim();
+    }
+    if (body.fullName !== undefined) {
+      updates.fullName = body.fullName?.trim() || null;
+    }
+
+    if (Object.keys(updates).length === 1) {
+      throw new BadRequestException('Aucun champ à modifier fourni (email, fullName).');
+    }
+
+    const updatedRows = await this.db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning({
+        id: users.id,
+        email: users.email,
+        fullName: users.fullName,
+        updatedAt: users.updatedAt,
+      });
+
+    const updated = updatedRows[0];
+    if (!updated) {
+      throw new NotFoundException('Utilisateur introuvable après mise à jour.');
+    }
+
+    const [roleRow] = await this.db
+      .select({ role: userRoles.role })
+      .from(userRoles)
+      .where(eq(userRoles.userId, id))
+      .limit(1);
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      fullName: updated.fullName ?? null,
+      platformRole: roleRow?.role ?? null,
+      updatedAt: updated.updatedAt,
+    };
+  }
+
+  /**
+   * DELETE /admin/users/:id — suppression définitive.
+   * Refuse si l'utilisateur est le dernier superadmin.
+   */
+  @Delete(':id')
+  async deleteUser(@Param('id') id: string) {
+    const [user] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    // Vérifier si cet utilisateur est superadmin
+    const [myRole] = await this.db
+      .select({ role: userRoles.role })
+      .from(userRoles)
+      .where(eq(userRoles.userId, id))
+      .limit(1);
+
+    if (myRole?.role === 'superadmin') {
+      const [superadminCount] = await this.db
+        .select({ nb: count() })
+        .from(userRoles)
+        .where(eq(userRoles.role, 'superadmin'));
+
+      if (Number(superadminCount?.nb ?? 0) <= 1) {
+        throw new ForbiddenException('Impossible de supprimer le dernier superadmin.');
+      }
+    }
+
+    await this.db.delete(users).where(eq(users.id, id));
+
+    return { deleted: true };
   }
 }
