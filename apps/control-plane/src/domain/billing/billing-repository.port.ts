@@ -35,4 +35,14 @@ export abstract class BillingRepositoryPort {
 
   /** Active le subscription (pending → active) pour l'organisation. */
   abstract activateSubscription(ctx: TenantContext, subscriptionId: string): Promise<void>;
+
+  /**
+   * INSERT-only — crée un enregistrement template_purchase (INV-04, C-11).
+   * Appelé après vérification de la transaction ou directement pour les templates gratuits.
+   */
+  abstract createTemplatePurchase(
+    ctx: TenantContext,
+    templateId: string,
+    transactionId: string | null,
+  ): Promise<void>;
 }

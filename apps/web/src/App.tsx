@@ -24,26 +24,12 @@ import { DangerPage } from '@/pages/app/settings/DangerPage';
 import { GitHubPage } from '@/pages/app/settings/GitHubPage';
 import { PrivateRoute } from '@/routes/PrivateRoute';
 import { PublicRoute } from '@/routes/PublicRoute';
-// Admin routes (Phase 1)
-import { AdminLayout } from '@/pages/admin/AdminLayout';
-import { AdminOverviewPage } from '@/pages/admin/AdminOverviewPage';
-import { AdminSettingsLayout, AdminSettingsIndexRedirect } from '@/pages/admin/AdminSettingsLayout';
-import { AdminBrandingPage } from '@/pages/admin/AdminBrandingPage';
-import { AdminFeaturesPage } from '@/pages/admin/AdminFeaturesPage';
-import { AdminLimitsPage } from '@/pages/admin/AdminLimitsPage';
-import { AdminMaintenancePage } from '@/pages/admin/AdminMaintenancePage';
-// Admin routes (Phase 2)
-import { AdminUsersPage } from '@/pages/admin/AdminUsersPage';
-import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage';
-import { AdminOrgsPage } from '@/pages/admin/AdminOrgsPage';
-import { AdminOrgDetailPage } from '@/pages/admin/AdminOrgDetailPage';
-import { AdminPlansPage } from '@/pages/admin/AdminPlansPage';
-import { AdminTemplatesPage } from '@/pages/admin/AdminTemplatesPage';
-// Admin routes (Phase 3)
-import { AdminDeploymentsPage } from '@/pages/admin/AdminDeploymentsPage';
-import { AdminServersPage } from '@/pages/admin/AdminServersPage';
-import { AdminBillingPage } from '@/pages/admin/AdminBillingPage';
-import { AdminAuditPage } from '@/pages/admin/AdminAuditPage';
+// Marketplace
+import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
+import { MarketplaceDetailPage } from '@/pages/app/marketplace/MarketplaceDetailPage';
+import { MarketplaceDeployPage } from '@/pages/app/marketplace/MarketplaceDeployPage';
+import { MyTemplatesPage } from '@/pages/app/marketplace/MyTemplatesPage';
+import { SubmitTemplatePage } from '@/pages/app/marketplace/SubmitTemplatePage';
 
 export function App() {
   return (
@@ -75,6 +61,12 @@ export function App() {
               <Route path="/app/servers/:serverId" element={<ServerDetailPage />} />
               <Route path="/app/billing" element={<BillingPage />} />
               <Route path="/app/billing/upgrade" element={<UpgradePage />} />
+              {/* Marketplace */}
+              <Route path="/app/marketplace" element={<MarketplacePage />} />
+              <Route path="/app/marketplace/:slug" element={<MarketplaceDetailPage />} />
+              <Route path="/app/marketplace/:slug/deploy" element={<MarketplaceDeployPage />} />
+              <Route path="/app/orgs/templates" element={<MyTemplatesPage />} />
+              <Route path="/app/orgs/templates/new" element={<SubmitTemplatePage />} />
               <Route path="/app/settings" element={<SettingsLayout />}>
                 <Route index element={<SettingsIndexRedirect />} />
                 <Route path="profile" element={<ProfilePage />} />
@@ -83,33 +75,6 @@ export function App() {
                 <Route path="api-keys" element={<ApiKeysPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="danger" element={<DangerPage />} />
-              </Route>
-            </Route>
-
-            {/* Superadmin routes — AdminLayout vérifie platformRole côté client (UX),
-                AdminGuard vérifie en base côté serveur (sécurité réelle, INV-06) */}
-            <Route element={<AdminLayout />}>
-              <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
-              <Route path="/admin/overview" element={<AdminOverviewPage />} />
-              {/* Phase 2 */}
-              <Route path="/admin/users" element={<AdminUsersPage />} />
-              <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
-              <Route path="/admin/orgs" element={<AdminOrgsPage />} />
-              <Route path="/admin/orgs/:id" element={<AdminOrgDetailPage />} />
-              <Route path="/admin/plans" element={<AdminPlansPage />} />
-              <Route path="/admin/templates" element={<AdminTemplatesPage />} />
-              {/* Phase 3 */}
-              <Route path="/admin/deployments" element={<AdminDeploymentsPage />} />
-              <Route path="/admin/servers" element={<AdminServersPage />} />
-              <Route path="/admin/billing" element={<AdminBillingPage />} />
-              <Route path="/admin/audit" element={<AdminAuditPage />} />
-              {/* Settings */}
-              <Route path="/admin/settings" element={<AdminSettingsLayout />}>
-                <Route index element={<AdminSettingsIndexRedirect />} />
-                <Route path="branding" element={<AdminBrandingPage />} />
-                <Route path="features" element={<AdminFeaturesPage />} />
-                <Route path="limits" element={<AdminLimitsPage />} />
-                <Route path="maintenance" element={<AdminMaintenancePage />} />
               </Route>
             </Route>
           </Route>

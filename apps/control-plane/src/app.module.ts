@@ -17,7 +17,9 @@ import { AuthController } from './delivery/auth.controller';
 import { AuthService } from './delivery/auth.service';
 import { UserController } from './delivery/user.controller';
 import { OrgController } from './delivery/org.controller';
+import { OrgTemplatesController } from './delivery/org-templates.controller';
 import { ServerController } from './delivery/server.controller';
+import { MarketplaceController } from './delivery/marketplace.controller';
 import { BillingService } from './domain/billing/billing.service';
 import { PaymentProviderPort } from './domain/billing/payment-provider.port';
 import { BillingRepositoryPort } from './domain/billing/billing-repository.port';
@@ -28,16 +30,32 @@ import { DeploymentNotifierService } from './delivery/deployment-notifier.servic
 import { DraftStoreService } from './delivery/draft-store.service';
 import { ContractGeneratorService } from './domain/contract-generator/contract-generator.service';
 import { TenantMiddleware } from './persistence/tenant-middleware';
-import { AdminModule } from './admin/admin.module';
 
 @Module({
-  imports: [AdaptersModule, OrchestrationModule, AdminModule],
-  controllers: [DeploymentController, CallbackController, ContractController, NormalizeController, GithubController, GithubOAuthCallbackController, BillingController, HealthController, AuthController, UserController, OrgController, ServerController],
+  imports: [AdaptersModule, OrchestrationModule],
+  controllers: [
+    DeploymentController,
+    CallbackController,
+    ContractController,
+    NormalizeController,
+    GithubController,
+    GithubOAuthCallbackController,
+    BillingController,
+    HealthController,
+    AuthController,
+    UserController,
+    OrgController,
+    OrgTemplatesController,
+    ServerController,
+    MarketplaceController,
+  ],
   providers: [
     // ── Ports → Adaptateurs (C-13 ContractGenerator) ─────────────────────────
     { provide: GitWritePort, useClass: GithubContractAdapter },
     // ── Ports → Adaptateurs (billing) ───────────────────────────────────────
     BillingService,
+    // Alias token string pour injection dans MarketplaceController
+    { provide: 'BillingService', useExisting: BillingService },
     { provide: BillingRepositoryPort, useClass: BillingRepositoryAdapter },
     {
       provide: PaymentProviderPort,
@@ -67,6 +85,9 @@ export class AppModule {
         'webhooks/(.*)',
         'auth/(.*)',
         'health',
+        // Routes publiques marketplace (GET sans auth)
+        { path: 'marketplace', method: RequestMethod.GET },
+        { path: 'marketplace/(.*)', method: RequestMethod.GET },
         { path: 'admin/settings', method: RequestMethod.GET },
       )
       .forRoutes('*');

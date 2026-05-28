@@ -10,6 +10,7 @@ import {
   paymentTransactions,
   paymentStateTransitions,
   subscriptions,
+  templatePurchases,
   withTenantTx,
 } from '@gamad/schema';
 import { DB_TOKEN } from './pipeline-repository.adapter';
@@ -114,6 +115,27 @@ export class BillingRepositoryAdapter extends BillingRepositoryPort {
             eq(subscriptions.status, 'pending'),
           ),
         ),
+    );
+  }
+
+  /**
+   * INSERT-only (INV-04) — crée un enregistrement template_purchase.
+   * La contrainte unique (org_id, template_id) garantit l'idempotence (INV-07).
+   */
+  override async createTemplatePurchase(
+    ctx: TenantContext,
+    templateId: string,
+    transactionId: string | null,
+  ): Promise<void> {
+    await withTenantTx(this.db, ctx, (tx) =>
+      tx
+        .insert(templatePurchases)
+        .values({
+          orgId: ctx.org_id,
+          templateId,
+          transactionId: transactionId ?? null,
+        })
+        .onConflictDoNothing(), // idempotence : rejeu webhook ne crée pas de doublon (INV-07)
     );
   }
 }

@@ -20,6 +20,20 @@ export interface InitSubscriptionParams {
   notifyUrl: string;
 }
 
+export interface InitTemplatePurchaseParams {
+  templateId: string;
+  templateName: string;
+  amount: number;
+  currency?: string;
+  customer: { id: string; email?: string; phone?: string };
+  returnUrl: string;
+  notifyUrl: string;
+  /** Métadonnées de déploiement stockées dans le contexte webhook pour usage ultérieur. */
+  serverId: string;
+  domain: string;
+  httpsEnabled: boolean;
+}
+
 @Injectable()
 export class BillingService {
   constructor(
@@ -64,6 +78,50 @@ export class BillingService {
     return { paymentUrl: result.payment_url };
   }
 
+  /**
+   * Initialise un paiement pour l'achat d'un template marketplace (C-08).
+   * Le contexte webhook contient les données de déploiement futures (serverId, domain…).
+   * Même pattern qu'initSubscription — même garanties d'idempotence (INV-07).
+   */
+  async initTemplatePurchase(
+    ctx: TenantContext,
+    params: InitTemplatePurchaseParams,
+  ): Promise<{ paymentUrl: string }> {
+    const reference = randomUUID();
+    const currency = params.currency ?? 'XOF';
+
+    const txId = await this.repo.createTransaction(ctx, {
+      orgId: ctx.org_id,
+      userId: ctx.user_id,
+      type: 'template_purchase',
+      amount: params.amount,
+      currency,
+      reference,
+    });
+
+    const result = await this.provider.initTransaction({
+      amount: params.amount,
+      currency,
+      reference,
+      customer: params.customer,
+      return_url: params.returnUrl,
+      notify_url: params.notifyUrl,
+      context: {
+        org_id: ctx.org_id,
+        template_id: params.templateId,
+        tx_id: txId,
+        type: 'template_purchase',
+        server_id: params.serverId,
+        domain: params.domain,
+        https_enabled: String(params.httpsEnabled),
+      },
+    });
+
+    await this.repo.updateProviderSession(ctx, txId, result.provider_session_id);
+
+    return { paymentUrl: result.payment_url };
+  }
+
   async handleNotification(notification: RawWebhookNotification): Promise<void> {
     // Garde-fou A : la vérification HMAC lève une exception si invalide ou timestamp > 5 min.
     const event = this.provider.verifyNotification(notification);
@@ -93,6 +151,15 @@ export class BillingService {
 
     if (event.status === 'success' && subscriptionId) {
       await this.repo.activateSubscription(ctx, subscriptionId);
+    }
+
+    // Cas template_purchase : INSERT template_purchase (INV-04)
+    if (event.status === 'success' && event.context['type'] === 'template_purchase') {
+      const templateId = event.context['template_id'];
+      const txId = event.context['tx_id'];
+      if (templateId) {
+        await this.repo.createTemplatePurchase(ctx, templateId, txId ?? null);
+      }
     }
   }
 }
