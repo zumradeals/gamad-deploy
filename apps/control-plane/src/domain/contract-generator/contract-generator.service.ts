@@ -102,9 +102,12 @@ function buildGeneratedFiles(pdn: PlanDeDeploiementNormalise): GeneratedFile[] {
       },
       {
         path: 'docker-compose.yml',
+        // APP_HOST_PORT est injecté par l'agent GAMAD au moment du déploiement
+        // (port hôte stable unique par deploymentId, plage 10000–59999).
+        // Valeur par défaut 8080 pour `docker compose up` en local hors GAMAD.
         content:
           `services:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile\n` +
-          `    ports:\n      - "${port}:80"\n    restart: unless-stopped\n`,
+          `    ports:\n      - "\${APP_HOST_PORT:-8080}:80"\n    restart: unless-stopped\n`,
       },
     ];
   }
@@ -123,7 +126,7 @@ function buildGeneratedFiles(pdn: PlanDeDeploiementNormalise): GeneratedFile[] {
       path: 'docker-compose.yml',
       content:
         `services:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile\n` +
-        `    ports:\n      - "${port}:${port}"\n    restart: unless-stopped\n`,
+        `    ports:\n      - "\${APP_HOST_PORT:-${port}}:${port}"\n    restart: unless-stopped\n`,
     },
   ];
 }

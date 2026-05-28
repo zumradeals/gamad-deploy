@@ -1,12 +1,13 @@
 // Delivery layer de l'agent : serveur HTTP minimal (node:http, zéro framework).
-// Deux endpoints : POST /deploy (C-06), GET /agent/health (C-07).
-// Aucune logique métier ici — délègue à DeploymentService.
+// Trois endpoints : POST /deploy (C-06), POST /check-health, GET /agent/health (C-07).
+// Aucune logique métier ici — délègue à DeploymentService et runHealthChecks.
 
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse, Server } from 'node:http';
-import type { AgentDispatchRequest, AgentHealthResponse } from '@gamad/contracts';
+import type { AgentDispatchRequest, AgentHealthResponse, HealthCheck } from '@gamad/contracts';
 import type { DeploymentService } from '../services/deployment.service';
 import { agentAuthMiddleware } from './agent-auth.middleware';
+import { runHealthChecks } from '../services/check-health.service';
 
 const AGENT_VERSION = '0.1.0';
 
@@ -55,6 +56,32 @@ export function createAgentServer(
             console.error(`[gamad-agent] deploy ${parsed.deployment_id} FAILED: ${message}`);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: message }));
+          });
+        return;
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url === '/check-health') {
+      let body = '';
+      req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      req.on('end', () => {
+        let parsed: { deployment_id: string; checks: HealthCheck[] };
+        try {
+          parsed = JSON.parse(body) as { deployment_id: string; checks: HealthCheck[] };
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          return;
+        }
+        runHealthChecks(parsed.deployment_id, parsed.checks)
+          .then((result) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+          })
+          .catch((err: unknown) => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: String(err) }));
           });
         return;
       });
