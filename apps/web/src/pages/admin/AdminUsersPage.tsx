@@ -1,19 +1,29 @@
 // AdminUsersPage — liste paginée des utilisateurs (Phase 2 superadmin).
-// Skeleton loading, search ILIKE, actions : détail / changer rôle / suspendre.
+// Skeleton loading, search ILIKE, actions : détail / changer rôle / suspendre / créer / modifier / supprimer.
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Eye, ShieldCheck, Ban } from 'lucide-react';
+import { Search, Eye, ShieldCheck, Ban, Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
   useAdminUsers,
   useChangeUserRole,
   useSuspendUser,
+  useCreateUser,
+  useUpdateUser,
+  useDeleteUser,
   type AdminUserSummary,
 } from '@/api/admin';
 
@@ -64,7 +74,7 @@ function UserAvatar({ email, fullName }: { email: string; fullName: string | nul
 function SkeletonRow() {
   return (
     <tr className="animate-pulse border-b border-gray-800">
-      {[...Array(7)].map((_, i) => (
+      {[...Array(8)].map((_, i) => (
         <td key={i} className="px-4 py-3">
           <div className="h-4 rounded bg-gray-700" style={{ width: `${60 + (i * 13) % 40}%` }} />
         </td>
@@ -138,6 +148,223 @@ function ChangeRoleModal({
   );
 }
 
+// ── Modal créer utilisateur ────────────────────────────────────────────────────
+
+function CreateUserModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [password, setPassword] = useState('');
+  const [platformRole, setPlatformRole] = useState<'superadmin' | 'support' | 'user'>('user');
+  const createUser = useCreateUser();
+
+  const handleSubmit = () => {
+    if (!email.trim() || !password.trim()) {
+      toast.error('Email et mot de passe sont requis.');
+      return;
+    }
+    createUser.mutate(
+      { email: email.trim(), fullName: fullName.trim(), password, platformRole },
+      {
+        onSuccess: (data) => {
+          toast.success(`Utilisateur ${data.email} créé.`);
+          onClose();
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white">Nouvel utilisateur</DialogTitle>
+          <DialogDescription className="text-gray-400">
+            Créer un compte utilisateur sur la plateforme.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1">
+            <Label className="text-gray-300">Email *</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+              className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-gray-300">Nom complet</Label>
+            <Input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Alice Dupont"
+              className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-gray-300">Mot de passe *</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min. 6 caractères"
+              className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-gray-300">Rôle plateforme</Label>
+            <select
+              value={platformRole}
+              onChange={(e) => setPlatformRole(e.target.value as typeof platformRole)}
+              className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="user">user</option>
+              <option value="support">support</option>
+              <option value="superadmin">superadmin</option>
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} className="border-gray-700 text-gray-300 hover:bg-gray-800">
+            Annuler
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={createUser.isPending}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {createUser.isPending ? 'Création...' : 'Créer'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Modal modifier utilisateur ────────────────────────────────────────────────
+
+function EditUserModal({
+  user,
+  onClose,
+}: {
+  user: AdminUserSummary;
+  onClose: () => void;
+}) {
+  const [email, setEmail] = useState(user.email);
+  const [fullName, setFullName] = useState(user.fullName ?? '');
+  const updateUser = useUpdateUser();
+
+  const handleSubmit = () => {
+    updateUser.mutate(
+      { id: user.id, email: email.trim(), fullName: fullName.trim() },
+      {
+        onSuccess: () => {
+          toast.success('Utilisateur mis à jour.');
+          onClose();
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white">Modifier l'utilisateur</DialogTitle>
+          <DialogDescription className="text-gray-400">{user.email}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1">
+            <Label className="text-gray-300">Email</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-gray-800 border-gray-700 text-white"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-gray-300">Nom complet</Label>
+            <Input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="bg-gray-800 border-gray-700 text-white"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} className="border-gray-700 text-gray-300 hover:bg-gray-800">
+            Annuler
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={updateUser.isPending}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {updateUser.isPending ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Modal supprimer utilisateur ───────────────────────────────────────────────
+
+function DeleteUserModal({
+  user,
+  onClose,
+}: {
+  user: AdminUserSummary;
+  onClose: () => void;
+}) {
+  const deleteUser = useDeleteUser();
+
+  const handleConfirm = () => {
+    deleteUser.mutate(user.id, {
+      onSuccess: () => {
+        toast.success(`Utilisateur ${user.email} supprimé.`);
+        onClose();
+      },
+      onError: (e) => toast.error(e.message),
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white">Supprimer cet utilisateur ?</DialogTitle>
+          <DialogDescription className="text-gray-400">
+            <span className="font-medium text-gray-200">{user.email}</span>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-2">
+          <p className="text-sm text-red-400 font-medium">Cette action est irréversible.</p>
+          <p className="text-xs text-gray-500 mt-1">
+            L'utilisateur, ses memberships et ses rôles seront supprimés définitivement.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} className="border-gray-700 text-gray-300 hover:bg-gray-800">
+            Annuler
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={deleteUser.isPending}
+          >
+            {deleteUser.isPending ? 'Suppression...' : 'Supprimer'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Page principale ───────────────────────────────────────────────────────────
 
 export function AdminUsersPage() {
@@ -146,6 +373,9 @@ export function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [roleModalUser, setRoleModalUser] = useState<AdminUserSummary | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editUser, setEditUser] = useState<AdminUserSummary | null>(null);
+  const [deleteUser, setDeleteUser] = useState<AdminUserSummary | null>(null);
 
   const { data, isLoading } = useAdminUsers({ page, limit: 20, search });
   const suspendUser = useSuspendUser();
@@ -176,24 +406,33 @@ export function AdminUsersPage() {
         <p className="text-sm text-gray-400 mt-1">Gestion des comptes utilisateurs de la plateforme</p>
       </div>
 
-      {/* Barre de recherche */}
-      <div className="flex gap-2">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Rechercher email ou nom..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="pl-9 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 focus:border-emerald-500"
-          />
+      {/* Barre de recherche + bouton créer */}
+      <div className="flex gap-2 items-center justify-between">
+        <div className="flex gap-2">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Rechercher email ou nom..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="pl-9 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 focus:border-emerald-500"
+            />
+          </div>
+          <Button
+            onClick={handleSearch}
+            variant="outline"
+            className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          >
+            Rechercher
+          </Button>
         </div>
         <Button
-          onClick={handleSearch}
-          variant="outline"
-          className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          onClick={() => setCreateOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
         >
-          Rechercher
+          <Plus size={14} />
+          Nouvel utilisateur
         </Button>
       </div>
 
@@ -257,10 +496,28 @@ export function AdminUsersPage() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleSuspend(user)}
-                            className={`h-7 w-7 p-0 hover:bg-gray-700 ${user.suspendedAt ? 'text-emerald-400 hover:text-emerald-300' : 'text-red-400 hover:text-red-300'}`}
+                            className={`h-7 w-7 p-0 hover:bg-gray-700 ${user.suspendedAt ? 'text-emerald-400 hover:text-emerald-300' : 'text-orange-400 hover:text-orange-300'}`}
                             title={user.suspendedAt ? 'Réactiver' : 'Suspendre'}
                           >
                             <Ban size={13} />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditUser(user)}
+                            className="h-7 w-7 p-0 text-gray-400 hover:text-white hover:bg-gray-700"
+                            title="Modifier"
+                          >
+                            <Pencil size={13} />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setDeleteUser(user)}
+                            className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-gray-700"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={13} />
                           </Button>
                         </div>
                       </td>
@@ -301,10 +558,13 @@ export function AdminUsersPage() {
         </div>
       </Card>
 
-      {/* Modal changement de rôle */}
+      {/* Modals */}
       {roleModalUser && (
         <ChangeRoleModal user={roleModalUser} onClose={() => setRoleModalUser(null)} />
       )}
+      {createOpen && <CreateUserModal onClose={() => setCreateOpen(false)} />}
+      {editUser && <EditUserModal user={editUser} onClose={() => setEditUser(null)} />}
+      {deleteUser && <DeleteUserModal user={deleteUser} onClose={() => setDeleteUser(null)} />}
     </div>
   );
 }

@@ -264,6 +264,54 @@ export function useImpersonateUser() {
   });
 }
 
+/** POST /admin/users — créer un utilisateur. */
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      email: string;
+      fullName: string;
+      password: string;
+      platformRole: 'superadmin' | 'support' | 'user';
+    }) =>
+      apiRequest<{ id: string; email: string; fullName: string | null; platformRole: string }>(
+        '/admin/users',
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}
+
+/** PATCH /admin/users/:id — modifier email et/ou fullName. */
+export function useUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; email?: string; fullName?: string }) =>
+      apiRequest<{ id: string; email: string; fullName: string | null; platformRole: string | null }>(
+        `/admin/users/${id}`,
+        { method: 'PATCH', body: JSON.stringify(body) },
+      ),
+    onSuccess: (_data, { id }) => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'users', id] });
+    },
+  });
+}
+
+/** DELETE /admin/users/:id — suppression définitive. */
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<{ deleted: boolean }>(`/admin/users/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}
+
 // ── Hooks Phase 2 — Organisations ─────────────────────────────────────────────
 
 /** GET /admin/orgs — liste paginée. */
@@ -303,6 +351,54 @@ export function useChangeOrgPlan() {
     onSuccess: (_data, { id }) => {
       void qc.invalidateQueries({ queryKey: ['admin', 'orgs'] });
       void qc.invalidateQueries({ queryKey: ['admin', 'orgs', id] });
+    },
+  });
+}
+
+/** POST /admin/orgs — créer une organisation. */
+export function useCreateOrg() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      name: string;
+      slug: string;
+      planId?: string | null;
+      ownerUserId: string;
+    }) =>
+      apiRequest<{ id: string; name: string; slug: string }>(
+        '/admin/orgs',
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'orgs'] });
+    },
+  });
+}
+
+/** PATCH /admin/orgs/:id — modifier name et/ou slug. */
+export function useUpdateOrg() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name?: string; slug?: string }) =>
+      apiRequest<{ id: string; name: string; slug: string; updatedAt: string }>(
+        `/admin/orgs/${id}`,
+        { method: 'PATCH', body: JSON.stringify(body) },
+      ),
+    onSuccess: (_data, { id }) => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'orgs'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'orgs', id] });
+    },
+  });
+}
+
+/** DELETE /admin/orgs/:id — suppression. */
+export function useDeleteOrg() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<{ deleted: boolean }>(`/admin/orgs/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'orgs'] });
     },
   });
 }
@@ -513,6 +609,58 @@ export function useAdminServers() {
     queryFn: () => apiRequest<{ data: AdminServerSummary[] }>('/admin/servers'),
     staleTime: 15_000,
     refetchInterval: 30_000,
+  });
+}
+
+/** POST /admin/servers — créer un serveur VPS (retourne agentToken en clair, une seule fois). */
+export function useCreateServer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      name: string;
+      host: string;
+      agentPort: number;
+      orgId: string;
+      provider?: 'hetzner' | 'ovh' | 'digitalocean' | 'custom';
+      region?: string;
+    }) =>
+      apiRequest<{
+        id: string;
+        name: string;
+        host: string;
+        agentPort: number;
+        agentToken: string;
+      }>('/admin/servers', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'servers'] });
+    },
+  });
+}
+
+/** PATCH /admin/servers/:id — modifier name, host et/ou agentPort. */
+export function useUpdateServer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name?: string; host?: string; agentPort?: number }) =>
+      apiRequest<{ id: string; name: string; host: string; agentPort: number; status: string }>(
+        `/admin/servers/${id}`,
+        { method: 'PATCH', body: JSON.stringify(body) },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'servers'] });
+    },
+  });
+}
+
+/** DELETE /admin/servers/:id — suppression. */
+export function useDeleteServer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<{ deleted: boolean }>(`/admin/servers/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'servers'] });
+    },
   });
 }
 
