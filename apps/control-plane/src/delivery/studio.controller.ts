@@ -34,7 +34,11 @@ import {
   withTenantTx,
 } from '@gamad/schema';
 import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { GithubOAuthTokenRepository } from '../adapters/github-oauth-token.repository';
+import { decryptOAuthToken } from '../adapters/github-oauth.adapter';
 import type { AIGeneratorPort } from '../domain/ai-generator/ai-generator.port';
+import type { GitHubPublisherPort } from '../domain/github-publisher/github-publisher.port';
 import type { TenantRequest } from '../persistence/tenant-middleware';
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
@@ -75,6 +79,8 @@ export class StudioController {
   constructor(
     @Inject(DB_TOKEN) private readonly db: NodePgDatabase,
     private readonly aiGenerator: AIGeneratorPort,
+    private readonly githubPublisher: GitHubPublisherPort,
+    private readonly githubTokenRepo: GithubOAuthTokenRepository,
   ) {}
 
   /** GET /studio/reference — templates GAMAD Officiel utilisables comme composants */
@@ -533,6 +539,101 @@ export class StudioController {
       contractContent: result.contractContent,
       explanation: result.explanation,
       tokensUsed: result.tokensInput + result.tokensOutput,
+    };
+  }
+
+  /**
+   * POST /studio/blueprints/:id/publish
+   * Publie le blueprint certifié comme repo GitHub dans l'org de l'utilisateur,
+   * puis fork vers le catalogue GAMAD officiel (si GAMAD_GITHUB_TOKEN configuré).
+   * Prérequis : blueprint.status === 'certified' + token GitHub connecté.
+   */
+  @Post('blueprints/:id/publish')
+  async publish(@Param('id') id: string, @Req() req: TenantRequest) {
+    const ctx = req.tenant;
+
+    // Charger le blueprint + sa dernière révision certifiée.
+    const [bp] = await this.db
+      .select({
+        id: templateBlueprints.id,
+        orgId: templateBlueprints.orgId,
+        name: templateBlueprints.name,
+        description: templateBlueprints.description,
+        tags: templateBlueprints.tags,
+        category: templateBlueprints.category,
+        status: templateBlueprints.status,
+        latestRevisionId: templateBlueprints.latestRevisionId,
+        repoUrl: templateBlueprints.repoUrl,
+      })
+      .from(templateBlueprints)
+      .where(and(eq(templateBlueprints.id, id), eq(templateBlueprints.orgId, ctx.org_id)))
+      .limit(1);
+
+    if (!bp) throw new NotFoundException('Blueprint introuvable.');
+    if (bp.status !== 'certified') {
+      throw new BadRequestException('Seuls les blueprints certifiés peuvent être publiés sur GitHub.');
+    }
+    if (!bp.latestRevisionId) {
+      throw new BadRequestException('Aucune révision disponible pour ce blueprint.');
+    }
+
+    // Charger la révision certifiée.
+    const [rev] = await this.db
+      .select({ version: templateRevisions.version, contractContent: templateRevisions.contractContent })
+      .from(templateRevisions)
+      .where(eq(templateRevisions.id, bp.latestRevisionId))
+      .limit(1);
+    if (!rev) throw new NotFoundException('Révision introuvable.');
+
+    // Récupérer le token GitHub de l'utilisateur (INV-06 : userId depuis JWT).
+    const stored = await this.githubTokenRepo.find(ctx.org_id, ctx.user_id);
+    if (!stored) {
+      throw new BadRequestException(
+        'Aucun compte GitHub connecté. Connectez GitHub dans les paramètres.',
+      );
+    }
+
+    let plainToken: string;
+    try {
+      plainToken = decryptOAuthToken(stored.encryptedToken);
+    } catch {
+      throw new InternalServerErrorException('Impossible de déchiffrer le token GitHub.');
+    }
+
+    // Construire un slug à partir du nom du blueprint.
+    const slug = bp.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 50);
+
+    let publishResult;
+    try {
+      publishResult = await this.githubPublisher.publishTemplate({
+        userToken: plainToken,
+        githubLogin: stored.githubUserLogin,
+        slug,
+        name: bp.name,
+        description: bp.description,
+        contractContent: rev.contractContent,
+        tags: bp.tags,
+        category: bp.category,
+        version: rev.version,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur GitHub.';
+      throw new InternalServerErrorException(`Publication échouée : ${msg}`);
+    }
+
+    // Persister repoUrl sur le blueprint (mise à jour non-audit, champ informationnel).
+    await this.db
+      .update(templateBlueprints)
+      .set({ repoUrl: publishResult.userRepoUrl, updatedAt: new Date() })
+      .where(eq(templateBlueprints.id, id));
+
+    return {
+      userRepoUrl: publishResult.userRepoUrl,
+      gamadForkUrl: publishResult.gamadForkUrl,
     };
   }
 }

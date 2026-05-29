@@ -18,6 +18,8 @@ import {
 import { CONTROL_PLANE_URL } from './adapters.constants';
 import { AIGeneratorPort } from '../domain/ai-generator/ai-generator.port';
 import { AnthropicAIGeneratorAdapter } from './anthropic-ai-generator.adapter';
+import { GitHubPublisherPort } from '../domain/github-publisher/github-publisher.port';
+import { GitHubPublisherAdapter } from './github-publisher.adapter';
 
 export { CONTROL_PLANE_URL } from './adapters.constants';
 
@@ -49,6 +51,13 @@ export { CONTROL_PLANE_URL } from './adapters.constants';
         return new AnthropicAIGeneratorAdapter(apiKey);
       },
     },
+    {
+      provide: GitHubPublisherPort,
+      useFactory: () => new GitHubPublisherAdapter(
+        process.env['GAMAD_GITHUB_TOKEN'],
+        process.env['GAMAD_GITHUB_ORG'],
+      ),
+    },
     { provide: AWAIT_HEALTH_INTERVAL_MS, useValue: 5_000 },
     // 72 × 5 s = 6 min — laisse le temps au docker build de se terminer sur VPS froid.
     { provide: AWAIT_HEALTH_MAX_ATTEMPTS, useValue: 72 },
@@ -60,6 +69,7 @@ export { CONTROL_PLANE_URL } from './adapters.constants';
     AgentPort,
     DbProviderPort,
     AIGeneratorPort,
+    GitHubPublisherPort,
     AWAIT_HEALTH_INTERVAL_MS,
     AWAIT_HEALTH_MAX_ATTEMPTS,
   ],
