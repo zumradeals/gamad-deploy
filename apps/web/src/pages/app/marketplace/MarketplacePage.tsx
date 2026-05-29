@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Store, Search } from 'lucide-react';
+import { Store, Search, PackagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -112,6 +112,12 @@ export function MarketplacePage() {
           <Store size={20} className="text-[--accent]" />
           <h1 className="font-display text-xl font-bold text-[--text]">Marketplace</h1>
         </div>
+        <Link to="/app/orgs/templates/new">
+          <Button size="sm" className="gap-2">
+            <PackagePlus size={15} />
+            Soumettre un template
+          </Button>
+        </Link>
       </div>
 
       {/* Filtres */}
