@@ -12,6 +12,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "@gamad/contracts": "workspace:*",
     "@gamad/schema": "workspace:*",
     "@nestjs/bullmq": "^10.2.1",

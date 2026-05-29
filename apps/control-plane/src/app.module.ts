@@ -20,6 +20,7 @@ import { OrgController } from './delivery/org.controller';
 import { OrgTemplatesController } from './delivery/org-templates.controller';
 import { ServerController } from './delivery/server.controller';
 import { MarketplaceController } from './delivery/marketplace.controller';
+import { StudioController } from './delivery/studio.controller';
 import { BillingService } from './domain/billing/billing.service';
 import { PaymentProviderPort } from './domain/billing/payment-provider.port';
 import { BillingRepositoryPort } from './domain/billing/billing-repository.port';
@@ -48,6 +49,7 @@ import { TenantMiddleware } from './persistence/tenant-middleware';
     OrgTemplatesController,
     ServerController,
     MarketplaceController,
+    StudioController,
   ],
   providers: [
     // ── Ports → Adaptateurs (C-13 ContractGenerator) ─────────────────────────
@@ -88,6 +90,8 @@ export class AppModule {
         // Routes publiques marketplace (GET sans auth)
         { path: 'marketplace', method: RequestMethod.GET },
         { path: 'marketplace/(.*)', method: RequestMethod.GET },
+        // Templates de référence publics (lecture seule)
+        { path: 'studio/reference', method: RequestMethod.GET },
         { path: 'admin/settings', method: RequestMethod.GET },
       )
       .forRoutes('*');

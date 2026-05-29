@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X, Store, PackagePlus } from 'lucide-react';
+import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X, Store, PackagePlus, FlaskConical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/app/servers', icon: Server, labelKey: 'nav.servers' },
   { to: '/app/marketplace', icon: Store, labelKey: 'nav.marketplace', labelFallback: 'Marketplace' },
   { to: '/app/orgs/templates', icon: PackagePlus, labelKey: 'nav.myTemplates', labelFallback: 'Mes templates', indent: true },
+  { to: '/app/studio', icon: FlaskConical, labelKey: 'nav.studio', labelFallback: 'Studio', indent: true },
   { to: '/app/billing', icon: CreditCard, labelKey: 'nav.billing' },
   { to: '/app/settings', icon: Settings, labelKey: 'nav.settings' },
 ];

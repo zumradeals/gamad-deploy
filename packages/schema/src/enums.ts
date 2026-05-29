@@ -14,3 +14,6 @@ export const paymentTypeEnum = pgEnum('payment_type_enum', ['subscription', 'tem
 export const paymentStatusEnum = pgEnum('payment_status_enum', ['pending', 'success', 'failed']);
 export const subscriptionStatusEnum = pgEnum('subscription_status_enum', ['pending', 'active', 'past_due', 'cancelled']);
 export const templateLevelEnum = pgEnum('template_level_enum', ['draft', 'valid', 'certified']);
+export const blueprintStatusEnum = pgEnum('blueprint_status_enum', ['draft', 'submitted', 'under_review', 'certified', 'rejected']);
+export const templateCategoryEnum = pgEnum('template_category_enum', ['web_app', 'cms', 'ecommerce', 'stack', 'data_tools', 'devops']);
+export const certificationDecisionEnum = pgEnum('certification_decision_enum', ['approved', 'rejected']);
