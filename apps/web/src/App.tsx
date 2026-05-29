@@ -30,6 +30,11 @@ import { MarketplaceDetailPage } from '@/pages/app/marketplace/MarketplaceDetail
 import { MarketplaceDeployPage } from '@/pages/app/marketplace/MarketplaceDeployPage';
 import { MyTemplatesPage } from '@/pages/app/marketplace/MyTemplatesPage';
 import { SubmitTemplatePage } from '@/pages/app/marketplace/SubmitTemplatePage';
+// Studio
+import { StudioPage } from '@/pages/app/studio/StudioPage';
+import { StudioNewPage } from '@/pages/app/studio/StudioNewPage';
+import { StudioEditorPage } from '@/pages/app/studio/StudioEditorPage';
+import { StudioReferencePage } from '@/pages/app/studio/StudioReferencePage';
 
 export function App() {
   return (
@@ -67,6 +72,11 @@ export function App() {
               <Route path="/app/marketplace/:slug/deploy" element={<MarketplaceDeployPage />} />
               <Route path="/app/orgs/templates" element={<MyTemplatesPage />} />
               <Route path="/app/orgs/templates/new" element={<SubmitTemplatePage />} />
+              {/* Studio */}
+              <Route path="/app/studio" element={<StudioPage />} />
+              <Route path="/app/studio/new" element={<StudioNewPage />} />
+              <Route path="/app/studio/reference" element={<StudioReferencePage />} />
+              <Route path="/app/studio/:id" element={<StudioEditorPage />} />
               <Route path="/app/settings" element={<SettingsLayout />}>
                 <Route index element={<SettingsIndexRedirect />} />
                 <Route path="profile" element={<ProfilePage />} />

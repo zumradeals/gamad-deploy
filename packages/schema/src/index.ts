@@ -11,4 +11,5 @@ export * from './tables/deployments';
 export * from './tables/monetization';
 export * from './tables/github-oauth';
 export * from './tables/platform-settings';
+export * from './tables/studio';
 export * from './tenant-tx';
