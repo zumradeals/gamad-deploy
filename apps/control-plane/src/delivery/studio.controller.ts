@@ -17,8 +17,6 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  HttpException,
-  HttpStatus,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { eq, and, desc, isNull } from 'drizzle-orm';
@@ -28,9 +26,9 @@ import {
   templateBlueprints,
   templateRevisions,
   templateComponents,
+  templateCertifications,
   templates,
   aiGenerationLogs,
-  subscriptions,
   withTenantTx,
 } from '@gamad/schema';
 import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
@@ -485,19 +483,8 @@ export class StudioController {
       throw new BadRequestException('La description est requise.');
     }
 
-    // Vérification abonnement actif (INV-06 : orgId côté serveur).
-    const [sub] = await this.db
-      .select({ status: subscriptions.status })
-      .from(subscriptions)
-      .where(eq(subscriptions.orgId, ctx.org_id))
-      .limit(1);
-
-    if (!sub || sub.status !== 'active') {
-      throw new HttpException(
-        'Un abonnement actif est requis pour utiliser le Studio IA.',
-        HttpStatus.PAYMENT_REQUIRED,
-      );
-    }
+    // Note : la vérification d'abonnement sera réactivée en Phase E avec le système de crédits.
+    // Pour l'instant, l'AI Generator est disponible à tous les membres (alpha).
 
     // Vérification blueprintId appartient à l'org si fourni.
     if (body.blueprintId) {
@@ -635,5 +622,50 @@ export class StudioController {
       userRepoUrl: publishResult.userRepoUrl,
       gamadForkUrl: publishResult.gamadForkUrl,
     };
+  }
+
+  /**
+   * POST /studio/blueprints/:id/self-certify
+   * Auto-certification pour tester le flux complet (alpha).
+   * Passe le blueprint de 'submitted' à 'certified' et crée une entrée de certification.
+   * En production, cette action sera réservée aux admins GAMAD (Phase E).
+   */
+  @Post('blueprints/:id/self-certify')
+  async selfCertify(@Param('id') id: string, @Req() req: TenantRequest) {
+    const ctx = req.tenant;
+
+    const [bp] = await this.db
+      .select({
+        id: templateBlueprints.id,
+        status: templateBlueprints.status,
+        latestRevisionId: templateBlueprints.latestRevisionId,
+        certifiedTemplateId: templateBlueprints.certifiedTemplateId,
+      })
+      .from(templateBlueprints)
+      .where(and(eq(templateBlueprints.id, id), eq(templateBlueprints.orgId, ctx.org_id)))
+      .limit(1);
+
+    if (!bp) throw new NotFoundException('Blueprint introuvable.');
+    if (!bp.latestRevisionId) throw new BadRequestException('Aucune révision à certifier.');
+    if (bp.status === 'certified') throw new BadRequestException('Blueprint déjà certifié.');
+
+    await withTenantTx(this.db, ctx, async (tx) => {
+      // INSERT certification (INV-04).
+      await tx.insert(templateCertifications).values({
+        blueprintId: id,
+        revisionId: bp.latestRevisionId!,
+        reviewerId: ctx.user_id,
+        decision: 'approved',
+        comment: 'Auto-certifié (alpha)',
+      });
+
+      // Mise à jour du statut.
+      await tx
+        .update(templateBlueprints)
+        .set({ status: 'certified', updatedAt: new Date() })
+        .where(eq(templateBlueprints.id, id));
+    });
+
+    return { certified: true };
   }
 }

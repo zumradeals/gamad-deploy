@@ -22,6 +22,7 @@ export interface MarketplaceTemplate {
 
 export interface MarketplaceTemplateDetail extends MarketplaceTemplate {
   hasAccess: boolean;
+  contractContent?: string | null;
 }
 
 export interface OrgTemplate {
@@ -136,15 +137,17 @@ export function useDeployTemplate() {
       serverId,
       domain,
       httpsEnabled,
+      envVars,
     }: {
       id: string;
       serverId: string;
       domain?: string;
       httpsEnabled: boolean;
+      envVars?: Record<string, string>;
     }) =>
       apiRequest<DeployResult>(`/marketplace/${id}/deploy`, {
         method: 'POST',
-        body: JSON.stringify({ serverId, domain, httpsEnabled }),
+        body: JSON.stringify({ serverId, domain, httpsEnabled, envVars }),
       }),
   });
 }
