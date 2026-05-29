@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X, Store } from 'lucide-react';
+import { LayoutDashboard, FolderGit2, Server, CreditCard, Settings, X, Store, PackagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -9,6 +9,7 @@ interface NavItem {
   icon: React.ElementType;
   labelKey: string;
   labelFallback?: string;
+  indent?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -16,6 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/app/projects', icon: FolderGit2, labelKey: 'nav.projects' },
   { to: '/app/servers', icon: Server, labelKey: 'nav.servers' },
   { to: '/app/marketplace', icon: Store, labelKey: 'nav.marketplace', labelFallback: 'Marketplace' },
+  { to: '/app/orgs/templates', icon: PackagePlus, labelKey: 'nav.myTemplates', labelFallback: 'Mes templates', indent: true },
   { to: '/app/billing', icon: CreditCard, labelKey: 'nav.billing' },
   { to: '/app/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
@@ -57,7 +59,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {NAV_ITEMS.map(({ to, icon: Icon, labelKey, labelFallback }) => (
+        {NAV_ITEMS.map(({ to, icon: Icon, labelKey, labelFallback, indent }) => (
           <NavLink
             key={to}
             to={to}
@@ -65,14 +67,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                indent && 'ml-4 text-xs',
                 isActive
                   ? 'bg-[rgba(16,185,129,0.12)] text-[--accent] font-medium'
                   : 'text-[--text-muted] hover:bg-[rgba(16,185,129,0.06)] hover:text-[--text]',
               )
             }
           >
-            <Icon size={17} />
-            {/* Fallback label pour les entrées sans clé i18n dédiée */}
+            <Icon size={indent ? 15 : 17} />
             {labelFallback ?? t(labelKey)}
           </NavLink>
         ))}
