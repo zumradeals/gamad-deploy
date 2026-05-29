@@ -224,3 +224,21 @@ export function useGenerateTemplate() {
       }),
   });
 }
+
+// ── GitHub Publisher ──────────────────────────────────────────────────────────
+
+export interface PublishResult {
+  userRepoUrl: string;
+  gamadForkUrl: string | null;
+}
+
+export function usePublishBlueprint(blueprintId: string) {
+  const qc = useQueryClient();
+  return useMutation<PublishResult, Error, void>({
+    mutationFn: () =>
+      apiRequest<PublishResult>(`/studio/blueprints/${blueprintId}/publish`, {
+        method: 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['blueprint', blueprintId] }),
+  });
+}

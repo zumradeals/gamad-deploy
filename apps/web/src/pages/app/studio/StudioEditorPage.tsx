@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Save, Send, History, Layers, Trash2,
-  CheckCircle2, XCircle, Clock, AlertTriangle, Sparkles,
+  CheckCircle2, XCircle, Clock, AlertTriangle, Sparkles, Github,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
@@ -15,6 +15,7 @@ import {
   useRemoveComponent,
   useReferenceTemplates,
   useGenerateTemplate,
+  usePublishBlueprint,
   STATUS_LABELS,
   STATUS_CLASSES,
   CATEGORY_LABELS,
@@ -49,6 +50,7 @@ export function StudioEditorPage() {
   const { data: refTemplates } = useReferenceTemplates();
 
   const generate = useGenerateTemplate();
+  const publish = usePublishBlueprint(id!);
 
   const [tab, setTab] = useState<Tab>('editor');
   const [contractContent, setContractContent] = useState('');
@@ -209,6 +211,29 @@ export function StudioEditorPage() {
               Soumettre
             </Button>
           )}
+          {isCertified && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() =>
+                publish.mutate(undefined, {
+                  onSuccess: (res) => {
+                    toast.success(
+                      res.gamadForkUrl
+                        ? `Publié sur GitHub + forké dans le catalogue GAMAD.`
+                        : `Publié sur GitHub : ${res.userRepoUrl}`,
+                    );
+                  },
+                  onError: (err) => toast.error(err instanceof Error ? err.message : 'Erreur de publication.'),
+                })
+              }
+              disabled={publish.isPending}
+            >
+              {publish.isPending ? <Loader2 size={13} className="animate-spin" /> : <Github size={13} />}
+              {bp.repoUrl ? 'Mettre à jour GitHub' : 'Publier sur GitHub'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -251,6 +276,17 @@ export function StudioEditorPage() {
         <div className="space-y-3">
           {bp.description && (
             <p className="text-sm text-[--text-muted]">{bp.description}</p>
+          )}
+          {bp.repoUrl && (
+            <a
+              href={bp.repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-[--text-muted] hover:text-[--text] underline-offset-2 hover:underline"
+            >
+              <Github size={11} />
+              {bp.repoUrl}
+            </a>
           )}
           <div className="flex items-center justify-between">
             <p className="text-xs text-[--text-muted]">
