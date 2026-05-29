@@ -17,6 +17,9 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { eq, and, desc, isNull } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
@@ -26,9 +29,12 @@ import {
   templateRevisions,
   templateComponents,
   templates,
+  aiGenerationLogs,
+  subscriptions,
   withTenantTx,
 } from '@gamad/schema';
 import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
+import type { AIGeneratorPort } from '../domain/ai-generator/ai-generator.port';
 import type { TenantRequest } from '../persistence/tenant-middleware';
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
@@ -55,12 +61,20 @@ class AddComponentDto {
   configOverrides?: Record<string, unknown>;
 }
 
+class GenerateTemplateDto {
+  description!: string;
+  category!: 'web_app' | 'cms' | 'ecommerce' | 'stack' | 'data_tools' | 'devops';
+  blueprintId?: string;
+  referenceTemplates?: string[];
+}
+
 // ── Controller ────────────────────────────────────────────────────────────────
 
 @Controller('studio')
 export class StudioController {
   constructor(
     @Inject(DB_TOKEN) private readonly db: NodePgDatabase,
+    private readonly aiGenerator: AIGeneratorPort,
   ) {}
 
   /** GET /studio/reference — templates GAMAD Officiel utilisables comme composants */
@@ -449,5 +463,76 @@ export class StudioController {
       );
 
     return { success: true };
+  }
+
+  /**
+   * POST /studio/generate
+   * Génère un gamad.json via IA (claude-opus-4-8).
+   * Prérequis : abonnement actif sur l'org (subscription.status = 'active').
+   * Log d'usage inséré dans ai_generation_logs (INV-04).
+   */
+  @Post('generate')
+  async generate(@Body() body: GenerateTemplateDto, @Req() req: TenantRequest) {
+    const ctx = req.tenant;
+
+    if (!body.description?.trim()) {
+      throw new BadRequestException('La description est requise.');
+    }
+
+    // Vérification abonnement actif (INV-06 : orgId côté serveur).
+    const [sub] = await this.db
+      .select({ status: subscriptions.status })
+      .from(subscriptions)
+      .where(eq(subscriptions.orgId, ctx.org_id))
+      .limit(1);
+
+    if (!sub || sub.status !== 'active') {
+      throw new HttpException(
+        'Un abonnement actif est requis pour utiliser le Studio IA.',
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+
+    // Vérification blueprintId appartient à l'org si fourni.
+    if (body.blueprintId) {
+      const [bp] = await this.db
+        .select({ id: templateBlueprints.id })
+        .from(templateBlueprints)
+        .where(and(eq(templateBlueprints.id, body.blueprintId), eq(templateBlueprints.orgId, ctx.org_id)))
+        .limit(1);
+      if (!bp) throw new NotFoundException('Blueprint introuvable.');
+    }
+
+    let result;
+    try {
+      result = await this.aiGenerator.generateTemplate({
+        description: body.description,
+        category: body.category,
+        ...(body.referenceTemplates ? { referenceTemplates: body.referenceTemplates } : {}),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur IA.';
+      throw new InternalServerErrorException(`Génération échouée : ${msg}`);
+    }
+
+    // Log INSERT-only (INV-04) — withTenantTx pour RLS.
+    await withTenantTx(this.db, ctx, async (tx) => {
+      await tx.insert(aiGenerationLogs).values({
+        orgId: ctx.org_id,
+        userId: ctx.user_id,
+        blueprintId: body.blueprintId ?? null,
+        prompt: body.description,
+        modelId: result.modelId,
+        tokensInput: result.tokensInput,
+        tokensOutput: result.tokensOutput,
+        creditCost: 0,
+      });
+    });
+
+    return {
+      contractContent: result.contractContent,
+      explanation: result.explanation,
+      tokensUsed: result.tokensInput + result.tokensOutput,
+    };
   }
 }

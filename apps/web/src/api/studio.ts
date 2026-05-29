@@ -199,3 +199,28 @@ export const STATUS_CLASSES: Record<BlueprintStatus, string> = {
   certified:    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   rejected:     'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
+
+// ── AI Generator ──────────────────────────────────────────────────────────────
+
+export interface GenerateTemplateParams {
+  description: string;
+  category: TemplateCategory;
+  blueprintId?: string;
+  referenceTemplates?: string[];
+}
+
+export interface GenerateTemplateResult {
+  contractContent: string;
+  explanation: string;
+  tokensUsed: number;
+}
+
+export function useGenerateTemplate() {
+  return useMutation<GenerateTemplateResult, Error, GenerateTemplateParams>({
+    mutationFn: (params) =>
+      apiRequest<GenerateTemplateResult>('/studio/generate', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }),
+  });
+}

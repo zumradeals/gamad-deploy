@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Save, Send, History, Layers, Trash2,
-  CheckCircle2, XCircle, Clock, AlertTriangle,
+  CheckCircle2, XCircle, Clock, AlertTriangle, Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
@@ -14,6 +14,7 @@ import {
   useAddComponent,
   useRemoveComponent,
   useReferenceTemplates,
+  useGenerateTemplate,
   STATUS_LABELS,
   STATUS_CLASSES,
   CATEGORY_LABELS,
@@ -47,10 +48,14 @@ export function StudioEditorPage() {
   const removeComponent = useRemoveComponent(id!);
   const { data: refTemplates } = useReferenceTemplates();
 
+  const generate = useGenerateTemplate();
+
   const [tab, setTab] = useState<Tab>('editor');
   const [contractContent, setContractContent] = useState('');
   const [contractError, setContractError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   useEffect(() => {
     if (bp?.latestRevision?.contractContent) {
@@ -100,6 +105,29 @@ export function StudioEditorPage() {
       {
         onSuccess: () => toast.success('Composant ajouté.'),
         onError: (err) => toast.error(err instanceof Error ? err.message : 'Erreur.'),
+      },
+    );
+  };
+
+  const handleGenerate = () => {
+    if (!aiPrompt.trim()) { toast.error('Décrivez l\'application à générer.'); return; }
+    const genParams = {
+      description: aiPrompt,
+      category: (bp?.category ?? 'web_app') as TemplateCategory,
+      ...(id ? { blueprintId: id } : {}),
+    };
+    generate.mutate(
+      genParams,
+      {
+        onSuccess: (res) => {
+          setContractContent(res.contractContent);
+          setIsDirty(true);
+          setContractError(null);
+          setShowAiPanel(false);
+          setAiPrompt('');
+          toast.success(`gamad.json généré (${res.tokensUsed} tokens). Pensez à sauvegarder.`);
+        },
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Erreur de génération.'),
       },
     );
   };
@@ -228,12 +256,61 @@ export function StudioEditorPage() {
             <p className="text-xs text-[--text-muted]">
               Spec C-02 — modifiez le contrat gamad.json. Chaque sauvegarde crée une révision immuable.
             </p>
-            {contractError ? (
-              <span className="text-xs text-red-500 font-medium">{contractError}</span>
-            ) : (
-              <span className="text-xs text-emerald-500 font-medium">JSON valide</span>
-            )}
+            <div className="flex items-center gap-2">
+              {!isCertified && (
+                <button
+                  onClick={() => setShowAiPanel(!showAiPanel)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline"
+                >
+                  <Sparkles size={11} />
+                  Générer avec l'IA
+                </button>
+              )}
+              {contractError ? (
+                <span className="text-xs text-red-500 font-medium">{contractError}</span>
+              ) : (
+                <span className="text-xs text-emerald-500 font-medium">JSON valide</span>
+              )}
+            </div>
           </div>
+
+          {/* Panneau IA */}
+          {showAiPanel && !isCertified && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-900/10 dark:border-purple-800 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-purple-500" />
+                <span className="text-sm font-medium text-[--text]">Générer un gamad.json avec l'IA</span>
+                <span className="text-xs text-[--text-muted]">(Abonnement actif requis)</span>
+              </div>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                rows={3}
+                placeholder="Ex : API Node.js avec PostgreSQL et Redis, exposée sur le port 3000, avec un worker BullMQ..."
+                className="w-full rounded-md border border-purple-300 dark:border-purple-700 px-3 py-2 text-sm bg-white dark:bg-[--bg] text-[--text] focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={handleGenerate}
+                  disabled={generate.isPending || !aiPrompt.trim()}
+                >
+                  {generate.isPending
+                    ? <Loader2 size={13} className="animate-spin" />
+                    : <Sparkles size={13} />}
+                  {generate.isPending ? 'Génération…' : 'Générer'}
+                </Button>
+                <button
+                  onClick={() => { setShowAiPanel(false); setAiPrompt(''); }}
+                  className="text-xs text-[--text-muted] hover:text-[--text]"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
           <textarea
             value={contractContent}
             onChange={(e) => handleContractChange(e.target.value)}

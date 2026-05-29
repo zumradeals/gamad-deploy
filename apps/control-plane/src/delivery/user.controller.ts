@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { users } from '@gamad/schema';
 import { DB_TOKEN } from '../adapters/pipeline-repository.adapter';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { AuthorizationHelper } from '../persistence/authorization';
 import type { TenantRequest } from '../persistence/tenant-middleware';
 

@@ -16,6 +16,8 @@ import {
   AWAIT_HEALTH_MAX_ATTEMPTS,
 } from '../orchestration/pipeline/pipeline.constants';
 import { CONTROL_PLANE_URL } from './adapters.constants';
+import { AIGeneratorPort } from '../domain/ai-generator/ai-generator.port';
+import { AnthropicAIGeneratorAdapter } from './anthropic-ai-generator.adapter';
 
 export { CONTROL_PLANE_URL } from './adapters.constants';
 
@@ -40,6 +42,13 @@ export { CONTROL_PLANE_URL } from './adapters.constants';
     { provide: PipelineRepositoryPort, useClass: PipelineRepositoryAdapter },
     { provide: AgentPort, useClass: AgentHttpAdapter },
     { provide: DbProviderPort, useClass: DbProviderStub },
+    {
+      provide: AIGeneratorPort,
+      useFactory: () => {
+        const apiKey = process.env['ANTHROPIC_API_KEY'] ?? '';
+        return new AnthropicAIGeneratorAdapter(apiKey);
+      },
+    },
     { provide: AWAIT_HEALTH_INTERVAL_MS, useValue: 5_000 },
     // 72 × 5 s = 6 min — laisse le temps au docker build de se terminer sur VPS froid.
     { provide: AWAIT_HEALTH_MAX_ATTEMPTS, useValue: 72 },
@@ -50,6 +59,7 @@ export { CONTROL_PLANE_URL } from './adapters.constants';
     PipelineRepositoryPort,
     AgentPort,
     DbProviderPort,
+    AIGeneratorPort,
     AWAIT_HEALTH_INTERVAL_MS,
     AWAIT_HEALTH_MAX_ATTEMPTS,
   ],

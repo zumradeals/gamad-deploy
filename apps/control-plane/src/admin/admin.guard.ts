@@ -2,7 +2,9 @@
 // Le rôle n'est jamais lu depuis le JWT — AuthorizationHelper fait la requête en base
 // à chaque appel. Toute tentative de bypass côté client est inopérante.
 
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
+import type { CanActivate, ExecutionContext } from '@nestjs/common';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { AuthorizationHelper } from '../persistence/authorization';
 import type { TenantRequest } from '../persistence/tenant-middleware';
 

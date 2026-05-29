@@ -61,3 +61,20 @@ export const templateCertifications = pgTable('template_certifications', {
   comment: text('comment'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** 🔒 INSERT-only — log de chaque appel IA (INV-04, INV-09). */
+export const aiGenerationLogs = pgTable('ai_generation_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => organizations.id),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  /** Blueprint associé si la génération est liée à un brouillon existant. */
+  blueprintId: uuid('blueprint_id').references(() => templateBlueprints.id),
+  /** Prompt envoyé à l'IA (description utilisateur). */
+  prompt: text('prompt').notNull(),
+  modelId: text('model_id').notNull(),
+  tokensInput: integer('tokens_input').notNull().default(0),
+  tokensOutput: integer('tokens_output').notNull().default(0),
+  /** Coût en XOF (pour facturation future GeniusPay crédits). */
+  creditCost: integer('credit_cost').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
