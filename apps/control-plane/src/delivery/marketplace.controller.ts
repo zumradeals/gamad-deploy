@@ -176,6 +176,8 @@ export class MarketplaceController {
       usageCount: Number(usageRow?.cnt ?? 0),
       createdAt: row.createdAt.toISOString(),
       hasAccess,
+      // contractContent exposé pour le wizard (pré-remplissage env vars).
+      contractContent: row.contractContent,
     };
   }
 
@@ -289,6 +291,7 @@ export class MarketplaceController {
       body.serverId,
       body.domain,
       body.httpsEnabled,
+      body.envVars,
     );
 
     return { deploymentId };
@@ -316,6 +319,7 @@ export class MarketplaceController {
     serverId: string,
     domain: string | undefined,
     httpsEnabled: boolean,
+    envVarsOverride?: Record<string, string>,
   ): Promise<string> {
     if (!template.contractContent) {
       throw new BadRequestException('contract_content manquant sur ce template.');
@@ -383,7 +387,7 @@ export class MarketplaceController {
       serverId,
       repoAnalysis: {
         repo_url: template.repoUrl,
-        ref: { type: 'branch' as const, value: 'main' },
+        ref: { type: 'branch' as const, value: 'cursor' },
         rawContract: template.contractContent,
         has_gamad_json: true,
         has_dockerfile: false,
@@ -393,6 +397,7 @@ export class MarketplaceController {
       },
       ...(domain ? { domain } : {}),
       httpsEnabled,
+      ...(envVarsOverride && Object.keys(envVarsOverride).length > 0 ? { envVarsOverride } : {}),
     };
 
     await this.queue.add(JobName.RESOLVE_SOURCE, jobData, DEFAULT_JOB_OPTIONS);
@@ -411,4 +416,6 @@ class DeployDto {
   serverId!: string;
   domain?: string;
   httpsEnabled!: boolean;
+  /** Variables d'environnement configurées par l'utilisateur dans le wizard. */
+  envVars?: Record<string, string>;
 }

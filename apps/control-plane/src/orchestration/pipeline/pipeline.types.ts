@@ -23,4 +23,6 @@ export interface PipelineJobData {
   domain?: string;
   /** HTTPS activé dans le wizard — injecté dans proxy.https du PDN. */
   httpsEnabled?: boolean;
+  /** Variables d'environnement configurées par l'utilisateur dans le wizard (override). */
+  envVarsOverride?: Record<string, string>;
 }

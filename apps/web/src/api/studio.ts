@@ -242,3 +242,14 @@ export function usePublishBlueprint(blueprintId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['blueprint', blueprintId] }),
   });
 }
+
+export function useSelfCertify(blueprintId: string) {
+  const qc = useQueryClient();
+  return useMutation<{ certified: boolean }, Error, void>({
+    mutationFn: () =>
+      apiRequest<{ certified: boolean }>(`/studio/blueprints/${blueprintId}/self-certify`, {
+        method: 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['blueprint', blueprintId] }),
+  });
+}

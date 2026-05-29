@@ -16,6 +16,7 @@ import {
   useReferenceTemplates,
   useGenerateTemplate,
   usePublishBlueprint,
+  useSelfCertify,
   STATUS_LABELS,
   STATUS_CLASSES,
   CATEGORY_LABELS,
@@ -51,6 +52,7 @@ export function StudioEditorPage() {
 
   const generate = useGenerateTemplate();
   const publish = usePublishBlueprint(id!);
+  const selfCertify = useSelfCertify(id!);
 
   const [tab, setTab] = useState<Tab>('editor');
   const [contractContent, setContractContent] = useState('');
@@ -209,6 +211,23 @@ export function StudioEditorPage() {
             >
               {submit.isPending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
               Soumettre
+            </Button>
+          )}
+          {(bp.status === 'submitted' || bp.status === 'under_review') && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
+              onClick={() =>
+                selfCertify.mutate(undefined, {
+                  onSuccess: () => toast.success('Blueprint auto-certifié. Vous pouvez maintenant le publier sur GitHub.'),
+                  onError: (err) => toast.error(err instanceof Error ? err.message : 'Erreur.'),
+                })
+              }
+              disabled={selfCertify.isPending}
+            >
+              {selfCertify.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+              Certifier (alpha)
             </Button>
           )}
           {isCertified && (
